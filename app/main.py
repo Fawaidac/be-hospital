@@ -1,8 +1,8 @@
-# app/main.py
 import asyncio
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request 
+from fastapi.responses import JSONResponse, HTMLResponse 
 from fastapi.exceptions import RequestValidationError
+from fastapi.templating import Jinja2Templates 
 from sqlalchemy import text
 
 from app.core.database import BaseMain, BasePSC, engine_main, engine_psc
@@ -16,12 +16,19 @@ BasePSC.metadata.create_all(bind=engine_psc)
 
 app = FastAPI(title="RSUD dr. Soebandi - Backend API", description="Backend terpadu untuk sistem Google Review Bot, Manajemen Komplain (PSC), dan Laporan Pendapatan (Revenue).")
 
+templates = Jinja2Templates(directory="templates")
+
 replied_reviews_cache: set = set()
 
 
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(google_review_bot_worker(replied_reviews_cache))
+
+
+@app.get("/privacy-policy", response_class=HTMLResponse, include_in_schema=False)
+async def get_privacy_policy(request: Request):
+    return templates.TemplateResponse(request=request, name="privacy-policy.html")
 
 
 @app.exception_handler(AuthException)
