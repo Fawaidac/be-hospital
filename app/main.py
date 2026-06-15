@@ -1,9 +1,11 @@
 import asyncio
+import os
 from fastapi import FastAPI, Request 
 from fastapi.responses import JSONResponse, HTMLResponse 
 from fastapi.exceptions import RequestValidationError
 from fastapi.templating import Jinja2Templates 
 from sqlalchemy import text
+from dotenv import load_dotenv
 
 from app.core.database import BaseMain, BasePSC, engine_main, engine_psc
 from app.core.security import AuthException
@@ -11,10 +13,25 @@ from app.schemas.base import ApiResponse
 from app.services.review_service import google_review_bot_worker
 from app.routers import komplain, revenue, review, auth
 
+load_dotenv()
+
 BaseMain.metadata.create_all(bind=engine_main)
 BasePSC.metadata.create_all(bind=engine_psc)
 
-app = FastAPI(title="RSUD dr. Soebandi - Backend API", description="Backend terpadu untuk sistem Google Review Bot, Manajemen Komplain (PSC), dan Laporan Pendapatan (Revenue).")
+ENV = os.getenv("ENVIRONMENT", "development")
+
+if ENV.lower() == "production":
+    app = FastAPI(
+        title="RSUD dr. Soebandi - Backend API",
+        docs_url=None,       
+        redoc_url=None,      
+        openapi_url=None     
+    )
+else:
+    app = FastAPI(
+        title="RSUD dr. Soebandi - Backend API",
+        description="Backend terpadu untuk sistem Google Review Bot, Manajemen Komplain (PSC), Laporan Pendapatan (Revenue)."
+    )
 
 templates = Jinja2Templates(directory="templates")
 
@@ -28,7 +45,8 @@ async def startup_event():
 
 @app.get("/privacy-policy", response_class=HTMLResponse, include_in_schema=False)
 async def get_privacy_policy(request: Request):
-    return templates.TemplateResponse(request=request, name="privacy-policy.html")
+    # Format aman untuk rendering Jinja2Templates di Python 3.14 + FastAPI Docker
+    return templates.TemplateResponse("privacy-policy.html", {"request": request})
 
 
 @app.exception_handler(AuthException)
