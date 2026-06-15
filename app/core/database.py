@@ -3,9 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.core.config import settings
 
-# ========================
-# MAIN DB (LOCAL)
-# ========================
+# Main DB
 engine_main = create_engine(
     settings.DATABASE_MAIN,
     pool_pre_ping=True,
@@ -20,9 +18,7 @@ SessionLocalMain = sessionmaker(
 BaseMain = declarative_base()
 
 
-# ========================
-# PSC DB (REMOTE)
-# ========================
+# PSC DB
 engine_psc = create_engine(
     settings.DATABASE_PSC,
     pool_pre_ping=True,
@@ -37,9 +33,7 @@ SessionLocalPSC = sessionmaker(
 BasePSC = declarative_base()
 
 
-# ========================
-# DEPENDENCY
-# ========================
+# Dependency
 def get_db_main():
     db = SessionLocalMain()
     try:

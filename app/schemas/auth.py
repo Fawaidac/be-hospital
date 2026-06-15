@@ -1,4 +1,4 @@
-# app/schemas/auth_schema.py
+# app/schemas/auth.py
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
@@ -27,6 +27,7 @@ class UserData(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
 
 class CheckPinRequest(BaseModel):
     """Schema input untuk validasi PIN 6 digit."""

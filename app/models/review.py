@@ -1,4 +1,4 @@
-# app/models/review_model.py
+# app/models/review.py
 from sqlalchemy import Column, Integer, String, Text, DateTime
 from sqlalchemy.sql import func
 from app.core.database import BaseMain
@@ -13,6 +13,5 @@ class GoogleReviewModel(BaseMain):
     rating = Column(Integer, nullable=False)
     comment = Column(Text, nullable=True)
     reply_text = Column(Text, nullable=True)
-    status = Column(String(50), default="pending") 
+    status = Column(String(50), default="pending")
     created_at = Column(DateTime, server_default=func.now())
-

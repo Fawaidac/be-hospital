@@ -1,16 +1,17 @@
 # app/routers/komplain.py
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from app.core.database import get_db_psc 
+from app.core.database import get_db_psc
 from app.core.security import get_current_user
-from app.models import UserModel
-from app.schemas.base_schema import BaseResponse, ApiResponse
-from app.schemas.komplain_schema import PaginatedKomplain, DashboardKomplainResponse, PdeResponse
+from app.models.user import UserModel
+from app.schemas.base import BaseResponse, ApiResponse
+from app.schemas.komplain import PaginatedKomplain, DashboardKomplainResponse, PdeResponse
 from app.services.komplain_service import KomplainService
 
 router = APIRouter(prefix="/api", tags=["Data Komplain"])
+
 
 @router.get(
     "/komplain",

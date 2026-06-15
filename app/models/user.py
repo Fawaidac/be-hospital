@@ -1,11 +1,12 @@
-# app/models/user_model.py
+# app/models/user.py
 from sqlalchemy.sql import func
 from sqlalchemy import Column, Integer, String, Text, DateTime
 from app.core.database import BaseMain
 
+
 class UserModel(BaseMain):
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     username = Column(String(100), unique=True, nullable=False, index=True)

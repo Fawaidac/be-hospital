@@ -1,15 +1,16 @@
-#app/routers/review.py
-from fastapi import APIRouter, Depends, HTTPException, status
+# app/routers/review.py
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 
 from app.core.database import get_db_main
 from app.core.security import get_current_user
-from app.models import GoogleReviewModel, UserModel
-from app.schemas.review_schema import GoogleReviewWebhook, ReviewResponse, BaseResponse, WebhookData
-from app.schemas.base_schema import ApiResponse 
-from app.services.reply_generator import ReviewBotService
+from app.models.review import GoogleReviewModel
+from app.models.user import UserModel
+from app.schemas.review import GoogleReviewWebhook, ReviewResponse, WebhookData
+from app.schemas.base import BaseResponse, ApiResponse
+from app.services.review_bot import ReviewBotService
 
 router = APIRouter(prefix="/api", tags=["Review"])
 
@@ -24,7 +25,7 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
 
     # 2. Generate template balasan resmi rumah sakit
     bot_reply = ReviewBotService.generate_reply_template(payload.rating)
-    
+
     # 3. Simpan data awal dengan status pending terlebih dahulu
     new_review = GoogleReviewModel(
         review_id=payload.review_id,
@@ -40,7 +41,7 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
 
     # 4. Tembak balasan ke API Google secara asinkron (Jaringan I/O)
     is_success = await ReviewBotService.send_reply_to_google(payload.review_id, bot_reply)
-    
+
     # 5. Update status akhir berdasarkan respons Google API
     new_review.status = "replied" if is_success else "failed"
     db.commit()
@@ -59,7 +60,10 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
 
 
 @router.get("/reviews", response_model=BaseResponse[List[ReviewResponse]])
-def get_all_reviews_for_dashboard(db: Session = Depends(get_db_main), current_user: UserModel = Depends(get_current_user)):
+def get_all_reviews_for_dashboard(
+    db: Session = Depends(get_db_main),
+    current_user: UserModel = Depends(get_current_user)
+):
     reviews = db.query(GoogleReviewModel).order_by(GoogleReviewModel.created_at.desc()).all()
 
     return ApiResponse.success(
@@ -70,10 +74,13 @@ def get_all_reviews_for_dashboard(db: Session = Depends(get_db_main), current_us
 
 
 @router.post("/reviews/sync", response_model=BaseResponse[dict])
-async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: UserModel = Depends(get_current_user)):
+async def sync_old_reviews(
+    db: Session = Depends(get_db_main),
+    current_user: UserModel = Depends(get_current_user)
+):
     old_reviews = await ReviewBotService.fetch_and_sync_old_reviews()
     count_saved = 0
-    
+
     for rev in old_reviews:
         review_id = rev.get("reviewId")
         existing = db.query(GoogleReviewModel).filter(GoogleReviewModel.review_id == review_id).first()
@@ -95,9 +102,9 @@ async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: Use
                 # Jika sudah dibalas manual oleh admin/humas, pakai balasan yang sudah ada di Google
                 bot_reply = rev["reviewReply"].get("comment", bot_reply)
 
-            # PERBAIKAN SINKRONISASI WAKTU: Ubah format string ISO Google ke Objek Datetime Python
+            # Konversi format string ISO Google ke Objek Datetime Python
             raw_time = rev.get("createTime")
-            parsed_date = datetime.now() # Fallback waktu saat ini jika field kosong
+            parsed_date = datetime.now()  # Fallback waktu saat ini jika field kosong
             if raw_time:
                 try:
                     # Menghilangkan penanda timezone 'Z' di akhir string untuk kompatibilitas database lokal
@@ -113,7 +120,7 @@ async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: Use
                 comment=comment,
                 reply_text=bot_reply,
                 status=status_reply,
-                created_at=parsed_date  # Menggunakan hasil parsing yang aman
+                created_at=parsed_date
             )
             db.add(new_review)
             count_saved += 1

@@ -1,11 +1,13 @@
+# app/models/revenue_detail.py
 from sqlalchemy import Column, Integer, BigInteger, Numeric, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import BaseMain
 
+
 class RevenueDetailModel(BaseMain):
     __tablename__ = "revenue_details"
-    
+
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     revenue_id = Column(Integer, ForeignKey("revenues.id", ondelete="CASCADE"), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False)

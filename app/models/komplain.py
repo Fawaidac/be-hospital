@@ -1,8 +1,9 @@
-# app/models/komplain_model.py
+# app/models/komplain.py
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy import Column, Integer, String, Text, DateTime
 from app.core.database import BasePSC
+
 
 class KomplainModel(BasePSC):
     __tablename__ = "data_komplain"

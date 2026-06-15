@@ -2,8 +2,8 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, extract, func
 from datetime import datetime, timedelta
-from app.models.pde_model import PDEModel
-from app.models.komplain_model import KomplainModel
+from app.models.pde import PDEModel
+from app.models.komplain import KomplainModel
 
 class KomplainService:
 

@@ -1,7 +1,8 @@
-# app/schemas/komplain_schema.py
+# app/schemas/komplain.py
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+
 
 class PdeResponse(BaseModel):
     id: Optional[int] = None
@@ -11,6 +12,7 @@ class PdeResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class KomplainResponse(BaseModel):
     id: int
@@ -27,10 +29,12 @@ class KomplainResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class PaginatedKomplain(BaseModel):
     current_page: int
     data: List[KomplainResponse]
     total: int
+
 
 class PdePerformanceItem(BaseModel):
     id: Optional[int] = None
@@ -38,6 +42,7 @@ class PdePerformanceItem(BaseModel):
     alamat: Optional[str] = None
     telp: Optional[str] = None
     total: int
+
 
 class DashboardKomplainResponse(BaseModel):
     ticket_open: int

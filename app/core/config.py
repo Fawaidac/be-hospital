@@ -8,13 +8,17 @@ load_dotenv(BASE_DIR / ".env")
 
 
 class Settings:
+    # Database connection strings
     DATABASE_MAIN: str = os.getenv("DATABASE_MAIN", "")
     DATABASE_PSC: str = os.getenv("DATABASE_PSC", "")
+
+    # Google API Credentials
     GOOGLE_ACCOUNT_ID: str = os.getenv("GOOGLE_ACCOUNT_ID", "")
     GOOGLE_LOCATION_ID: str = os.getenv("GOOGLE_LOCATION_ID", "")
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
     GOOGLE_REFRESH_TOKEN: str = os.getenv("GOOGLE_REFRESH_TOKEN", "")
+    
     # JWT & Security Settings
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")

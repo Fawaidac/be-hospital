@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session, joinedload
-from app.models.category_model import CategoryModel
-from app.models.target_model import TargetModel
-from app.models.revenue_model import RevenueModel
-from app.models.revenue_detail_model import RevenueDetailModel
+from app.models.category import CategoryModel
+from app.models.target import TargetModel
+from app.models.revenue import RevenueModel
+from app.models.revenue_detail import RevenueDetailModel
 from fastapi import HTTPException, status
 
 BULAN_MAP = {

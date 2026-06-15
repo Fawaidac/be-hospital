@@ -1,12 +1,13 @@
-#app/models/target_model.py
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey 
+# app/models/target.py
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.dialects.mysql import YEAR
 from sqlalchemy.sql import func
 from app.core.database import BaseMain
 
+
 class TargetModel(BaseMain):
-    __tablename__ = "targets" 
-    
+    __tablename__ = "targets"
+
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     tahun = Column(YEAR, nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False)

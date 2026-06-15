@@ -1,9 +1,19 @@
-from app.models.review_model import GoogleReviewModel
-from app.models.user_model import UserModel
-from app.models.category_model import CategoryModel
-from app.models.revenue_model import RevenueModel
-from app.models.revenue_detail_model import RevenueDetailModel
-from app.models.pde_model import PDEModel
-from app.models.komplain_model import KomplainModel
+from app.models.review import GoogleReviewModel
+from app.models.user import UserModel
+from app.models.category import CategoryModel
+from app.models.revenue import RevenueModel
+from app.models.revenue_detail import RevenueDetailModel
+from app.models.pde import PDEModel
+from app.models.komplain import KomplainModel
+from app.models.target import TargetModel
 
-__all__ = ["GoogleReviewModel", "UserModel", "CategoryModel", "RevenueModel", "RevenueDetailModel", "PDEModel", "KomplainModel",]
+__all__ = [
+    "GoogleReviewModel",
+    "UserModel",
+    "CategoryModel",
+    "RevenueModel",
+    "RevenueDetailModel",
+    "PDEModel",
+    "KomplainModel",
+    "TargetModel",
+]

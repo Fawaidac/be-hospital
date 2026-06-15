@@ -1,4 +1,4 @@
-#app/services/reply_generator.py
+# app/services/review_bot.py
 import random
 import logging
 import httpx
@@ -7,6 +7,7 @@ from app.core.config import settings
 # Setup logging sederhana untuk mempermudah testing di terminal
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ReviewBot")
+
 
 class ReviewBotService:
 
@@ -32,7 +33,7 @@ class ReviewBotService:
     def generate_reply_template(rating) -> str:
         """Logika penentuan balasan otomatis berdasarkan bintang 1-5 dengan format formal"""
         rating_int = ReviewBotService.parse_rating(rating)
-        
+
         footer = (
             "\n\nApabila membutuhkan informasi lebih lanjut atau ingin menyampaikan aspirasi, "
             "silakan menghubungi kami melalui:\n"
@@ -50,7 +51,7 @@ class ReviewBotService:
                 "Terima kasih atas apresiasi dan kepercayaan yang telah diberikan kepada RSD dr. Soebandi. "
                 "Masukan positif dari Bapak/Ibu menjadi motivasi bagi kami untuk terus meningkatkan mutu pelayanan. "
                 "Semoga Bapak/Ibu beserta keluarga selalu diberikan kesehatan." + footer,
-                
+
                 "Terima kasih atas ulasan bintang 5 dan kepercayaan Bapak/Ibu kepada RSD dr. Soebandi. "
                 "Kami berkomitmen untuk selalu mempertahankan dan memberikan pelayanan medis terbaik bagi masyarakat. "
                 "Semoga sehat selalu." + footer
@@ -76,7 +77,7 @@ class ReviewBotService:
                 "Kami sangat mengharapkan Bapak/Ibu dapat menghubungi Humas/Layanan Pengaduan kami di bawah ini agar permasalahan ini dapat segera kami selesaikan secara langsung." + footer
             ]
         }
-        
+
         return random.choice(templates.get(rating_int, templates[3]))
 
     @staticmethod
@@ -84,11 +85,11 @@ class ReviewBotService:
         account_id = settings.GOOGLE_ACCOUNT_ID
         if not account_id.startswith("accounts/"):
             account_id = f"accounts/{account_id}"
-            
+
         location_id = settings.GOOGLE_LOCATION_ID
         if not location_id.startswith("locations/"):
             location_id = f"locations/{location_id}"
-            
+
         return account_id, location_id
 
     @staticmethod
@@ -101,7 +102,7 @@ class ReviewBotService:
             "refresh_token": settings.GOOGLE_REFRESH_TOKEN,
             "grant_type": "refresh_token"
         }
-        
+
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.post(url, data=payload)
@@ -117,7 +118,7 @@ class ReviewBotService:
     async def send_reply_to_google(review_id: str, reply_text: str) -> bool:
         """Fungsi resmi mengirim balasan ke Google Business Profile API (v1 terbaru)"""
         account_id, location_id = ReviewBotService.get_clean_account_location_ids()
-        
+
         access_token = await ReviewBotService.get_live_access_token()
         if not access_token:
             return False
@@ -135,7 +136,6 @@ class ReviewBotService:
 
         async with httpx.AsyncClient() as client:
             try:
-                # Menggunakan POST untuk endpoint :reply v1
                 response = await client.post(url, json=payload, headers=headers)
                 if response.status_code == 200:
                     logger.info(f"Berhasil membalas review ID: {review_id}")
@@ -145,19 +145,19 @@ class ReviewBotService:
             except Exception as e:
                 logger.error(f"Error koneksi saat balas review: {str(e)}")
                 return False
-    
+
     @staticmethod
     async def fetch_and_sync_old_reviews() -> list:
         """Fungsi untuk menarik daftar seluruh review lama dari Google API (v1 terbaru)"""
         account_id, location_id = ReviewBotService.get_clean_account_location_ids()
-        
+
         access_token = await ReviewBotService.get_live_access_token()
         if not access_token:
             return []
 
         # Endpoint resmi Google Business Profile API v1 untuk list reviews
         url = f"https://mybusinessmanagement.googleapis.com/v1/{account_id}/{location_id}/reviews"
-        
+
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json"

@@ -1,14 +1,13 @@
-from app.schemas.review_schema import (
+from app.schemas.review import (
     GoogleReviewWebhook,
     ReviewResponse,
-    BaseResponse,
     WebhookData,
 )
-from app.schemas.auth_schema import LoginRequest, LoginData, UserData
+from app.schemas.auth import LoginRequest, LoginData, UserData, CheckPinRequest
+from app.schemas.base import BaseResponse, ApiResponse
+from app.schemas.komplain import KomplainResponse, PdeResponse, PaginatedKomplain, PdePerformanceItem, DashboardKomplainResponse
+from app.schemas.revenue import TargetInput, CategoryAmountInput, RealisasiInput, RevenueStoreRequest
 
-from app.schemas.base_schema import BaseResponse, ApiResponse
-from app.schemas.komplain_schema import  KomplainResponse, PdeResponse, PaginatedKomplain, PdePerformanceItem, DashboardKomplainResponse
-from app.schemas.revenue_schema import TargetInput, CategoryAmountInput, RealisasiInput, RevenueStoreRequest
 __all__ = [
     "GoogleReviewWebhook",
     "ReviewResponse",
@@ -17,12 +16,13 @@ __all__ = [
     "LoginRequest",
     "LoginData",
     "UserData",
+    "CheckPinRequest",
     "ApiResponse",
     "KomplainResponse",
     "PdeResponse",
     "PaginatedKomplain",
     "PdePerformanceItem",
-    "DashboardKomplainResponse",    
+    "DashboardKomplainResponse",
     "TargetInput",
     "CategoryAmountInput",
     "RealisasiInput",
