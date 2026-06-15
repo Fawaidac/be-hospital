@@ -45,8 +45,8 @@ async def startup_event():
 
 @app.get("/privacy-policy", response_class=HTMLResponse, include_in_schema=False)
 async def get_privacy_policy(request: Request):
-    # Format aman untuk rendering Jinja2Templates di Python 3.14 + FastAPI Docker
-    return templates.TemplateResponse("privacy-policy.html", {"request": request})
+    # Format modern & aman yang didukung penuh oleh FastAPI versi baru maupun kontainer Docker
+    return templates.TemplateResponse(request=request, name="privacy-policy.html")
 
 
 @app.exception_handler(AuthException)
