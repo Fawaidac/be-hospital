@@ -17,16 +17,13 @@ router = APIRouter(prefix="/api", tags=["Review"])
 
 @router.post("/webhook/google-review", status_code=201, response_model=BaseResponse[WebhookData])
 async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session = Depends(get_db_main)):
-    # 1. Validasi apakah review sudah pernah diproses sebelumnya
     existing_review = db.query(GoogleReviewModel).filter(GoogleReviewModel.review_id == payload.review_id).first()
 
     if existing_review:
         return ApiResponse.error(message="This review ID has already been processed.", code=400)
 
-    # 2. Generate template balasan resmi rumah sakit
     bot_reply = ReviewBotService.generate_reply_template(payload.rating)
 
-    # 3. Simpan data awal dengan status pending terlebih dahulu
     new_review = GoogleReviewModel(
         review_id=payload.review_id,
         reviewer_name=payload.reviewer_name,
@@ -36,13 +33,11 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
         status="pending",
     )
     db.add(new_review)
-    db.commit()  # Commit awal agar data terkunci di database dan tidak terjadi double-insert dari request lain
+    db.commit()  
     db.refresh(new_review)
 
-    # 4. Tembak balasan ke API Google secara asinkron (Jaringan I/O)
     is_success = await ReviewBotService.send_reply_to_google(payload.review_id, bot_reply)
 
-    # 5. Update status akhir berdasarkan respons Google API
     new_review.status = "replied" if is_success else "failed"
     db.commit()
 
@@ -95,19 +90,15 @@ async def sync_old_reviews(
             status_reply = "replied"
 
             if not has_replied:
-                # Kirim ke Google jika belum dibalas sama sekali di dashboard manapun
                 success = await ReviewBotService.send_reply_to_google(review_id, bot_reply)
                 status_reply = "replied" if success else "failed"
             else:
-                # Jika sudah dibalas manual oleh admin/humas, pakai balasan yang sudah ada di Google
                 bot_reply = rev["reviewReply"].get("comment", bot_reply)
 
-            # Konversi format string ISO Google ke Objek Datetime Python
             raw_time = rev.get("createTime")
-            parsed_date = datetime.now()  # Fallback waktu saat ini jika field kosong
+            parsed_date = datetime.now()
             if raw_time:
                 try:
-                    # Menghilangkan penanda timezone 'Z' di akhir string untuk kompatibilitas database lokal
                     clean_time_str = raw_time.replace("Z", "+00:00")
                     parsed_date = datetime.fromisoformat(clean_time_str)
                 except ValueError:
@@ -125,7 +116,6 @@ async def sync_old_reviews(
             db.add(new_review)
             count_saved += 1
 
-    # Lakukan commit di akhir iterasi agar eksekusi batch menjadi jauh lebih cepat
     if count_saved > 0:
         db.commit()
 

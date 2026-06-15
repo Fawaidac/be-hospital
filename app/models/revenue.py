@@ -15,5 +15,4 @@ class RevenueModel(BaseMain):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    # RELASI: 1 Revenue punya banyak Details
     details = relationship("RevenueDetailModel", back_populates="revenue", cascade="all, delete-orphan")

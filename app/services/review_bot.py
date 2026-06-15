@@ -4,7 +4,6 @@ import logging
 import httpx
 from app.core.config import settings
 
-# Setup logging sederhana untuk mempermudah testing di terminal
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ReviewBot")
 
@@ -18,7 +17,6 @@ class ReviewBotService:
             return rating_val
         if isinstance(rating_val, str):
             val = rating_val.upper().strip()
-            # Mapping jika Google mengirimkan format Enum String
             mapping = {"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5}
             if val in mapping:
                 return mapping[val]
@@ -123,7 +121,6 @@ class ReviewBotService:
         if not access_token:
             return False
 
-        # Endpoint resmi Google Business Profile API v1
         url = f"https://mybusinessmanagement.googleapis.com/v1/{account_id}/{location_id}/reviews/{review_id}:reply"
 
         headers = {
@@ -155,7 +152,6 @@ class ReviewBotService:
         if not access_token:
             return []
 
-        # Endpoint resmi Google Business Profile API v1 untuk list reviews
         url = f"https://mybusinessmanagement.googleapis.com/v1/{account_id}/{location_id}/reviews"
 
         headers = {

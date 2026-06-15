@@ -16,6 +16,5 @@ class RevenueDetailModel(BaseMain):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    # RELASI: Hubungkan balik ke RevenueModel dan CategoryModel
     revenue = relationship("RevenueModel", back_populates="details")
     category = relationship("CategoryModel")

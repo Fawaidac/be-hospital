@@ -43,7 +43,7 @@ def store(
 @router.get("/years")
 def years(
     db: Session = Depends(get_db_main),
-    current_user: UserModel = Depends(super_admin_only)  # 🔒 Hanya Super Admin
+    current_user: UserModel = Depends(super_admin_only)  
 ):
     try:
         data = RevenueService.get_year_list(db)
@@ -56,7 +56,7 @@ def years(
 def show_by_year(
     tahun: int = Query(...),
     db: Session = Depends(get_db_main),
-    current_user: UserModel = Depends(super_admin_only)  # 🔒 Hanya Super Admin
+    current_user: UserModel = Depends(super_admin_only)  
 ):
     try:
         data = RevenueService.get_by_year(db, tahun)
@@ -69,7 +69,7 @@ def show_by_year(
 def destroy(
     tahun: int = Query(...),
     db: Session = Depends(get_db_main),
-    current_user: UserModel = Depends(super_admin_only)  # 🔒 Hanya Super Admin
+    current_user: UserModel = Depends(super_admin_only)  
 ):
     try:
         RevenueService.delete_by_year(db, tahun)

@@ -31,5 +31,5 @@ class WebhookData(BaseModel):
     review_id: str
     reviewer_name: str
     rating: int = Field(..., ge=1, le=5)
-    bot_status: str       # "replied" | "failed"
+    bot_status: str      
     reply_text: str

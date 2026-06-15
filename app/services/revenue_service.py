@@ -31,7 +31,6 @@ class RevenueService:
         jumlah_target_tahunan = sum(target_tahunan.values())
         jumlah_target_bulanan = sum(target_bulanan.values())
 
-        # FIX: Eager loading menggunakan relationship 'details', mirip dengan dengan ->with('details') di Laravel
         revenues = db.query(RevenueModel)\
             .options(joinedload(RevenueModel.details))\
             .filter(RevenueModel.tahun == tahun)\
@@ -42,13 +41,11 @@ class RevenueService:
         summary_kategori = {cat.name: 0 for cat in categories}
 
         for bulan, bulan_name in BULAN_MAP.items():
-            # Cari data revenue bulan ini di memory hasil query di atas
             rev = next((r for r in revenues if r.bulan == bulan), None)
             
             data_kategori = []
             total_bulan = 0
 
-            # FIX: Ambil dari relasi objek memory `rev.details`, bukan menembak query DB lagi!
             details = rev.details if rev else []
 
             for cat in categories:
@@ -106,7 +103,6 @@ class RevenueService:
         tahun = data['tahun']
         categories = db.query(CategoryModel).all()
 
-        # 1. Simpan/Update Target
         for target_input in data['targets']:
             category = next((c for c in categories if c.code == target_input['category_code']), None)
             if not category:
@@ -122,7 +118,6 @@ class RevenueService:
 
         db.flush()
 
-        # 2. Simpan/Update Realisasi
         if 'realisasi' in data and data['realisasi']:
             for realisasi_bulan in data['realisasi']:
                 bulan = realisasi_bulan['bulan']
@@ -184,7 +179,6 @@ class RevenueService:
                 'target_bulanan': bulanan.amount if bulanan else 0,
             })
 
-        # FIX: Tambahkan eager loading di get_by_year juga biar cepat
         revenues = db.query(RevenueModel).options(joinedload(RevenueModel.details)).filter(RevenueModel.tahun == tahun).order_by(RevenueModel.bulan).all()
         realisasi_data = []
         

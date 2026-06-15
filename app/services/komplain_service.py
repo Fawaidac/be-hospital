@@ -19,7 +19,6 @@ class KomplainService:
         per_page: int = 10
     ):
         now = datetime.now()
-        # Filter bulan berjalan & tahun berjalan
         query = db.query(KomplainModel).filter(
             extract('month', KomplainModel.tanggal) == now.month,
             extract('year', KomplainModel.tanggal) == now.year
@@ -59,14 +58,11 @@ class KomplainService:
             else:
                 query = query.filter(KomplainModel.nomor_act == nomor_act)
 
-        # Hitung Total Record Untuk Keperluan Validasi Pagination
         total = query.count()
 
-        # Eksekusi Get Hasil Berdasarkan Aturan Halaman (Paginate & Order By Latest ID)
         offset = (page - 1) * per_page
         items = query.order_by(KomplainModel.id.desc()).offset(offset).limit(per_page).all()
 
-        # Olah transform model array meniru properti $appends = ['status'] dan toArray() Laravel
         formatted_data = []
         for item in items:
             status_str = "DONE" if item.nomor_act is not None else "PENDING"
@@ -75,7 +71,6 @@ class KomplainService:
             if item.pde:
                 pde_data = {"id": item.pde.id, "nama": item.pde.nama, "alamat": item.pde.alamat, "telp": item.pde.telp}
             elif item.nomor_act:
-                # Fallback toArray() Laravel model logic
                 pde_data = {"id": None, "nama": "PDE Team", "alamat": None, "telp": item.nomor_act}
 
             formatted_data.append({
@@ -99,7 +94,6 @@ class KomplainService:
         simrs_kws = ['simrs', 'rme', 'lemot', 'loading', 'konek', 'internet']
         maint_kws = ['komputer', 'printer', 'tinta', 'mouse', 'booting', 'cpu']
 
-        # Query Dasar Bulan Berjalan
         base_filter = and_(
             extract('month', KomplainModel.tanggal) == now.month,
             extract('year', KomplainModel.tanggal) == now.year
@@ -114,7 +108,6 @@ class KomplainService:
         maint_masuk = db.query(KomplainModel).filter(base_filter, or_(*[KomplainModel.permasalahan.like(f"%{w}%") for w in maint_kws])).count()
         maint_done = db.query(KomplainModel).filter(base_filter, KomplainModel.nomor_act.isnot(None), or_(*[KomplainModel.permasalahan.like(f"%{w}%") for w in maint_kws])).count()
 
-        # Ambil Performa Tim PDE Terbanyak (Group By nomor_act)
         performance_raw = db.query(
             KomplainModel.nomor_act,
             func.count(KomplainModel.id).label('total')
@@ -126,7 +119,6 @@ class KomplainService:
         pde_team_counter = 1
         
         for row in performance_raw:
-            # Cari relasi data_pde manual di session psc
             pde_rel = db.query(PDEModel).filter(PDEModel.telp == row.nomor_act).first()
             if pde_rel:
                 pde_performance.append({
