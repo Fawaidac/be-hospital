@@ -9,10 +9,10 @@ from app.schemas.base import ApiResponse
 from app.schemas.revenue import RevenueStoreRequest
 from app.services.revenue_service import RevenueService
 
-router = APIRouter(prefix="/api/revenue", tags=["Revenue"])
+router = APIRouter(prefix="/api", tags=["Revenue"])
 
 
-@router.get("/")
+@router.get("/revenue")
 def index(
     tahun: int = Query(..., description="Tahun wajib diisi"),
     db: Session = Depends(get_db_main),
@@ -25,7 +25,7 @@ def index(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/")
+@router.post("/revenue")
 def store(
     payload: RevenueStoreRequest,
     db: Session = Depends(get_db_main),
@@ -40,7 +40,7 @@ def store(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/years")
+@router.get("/revenue/years")
 def years(
     db: Session = Depends(get_db_main),
     current_user: UserModel = Depends(super_admin_only)  
@@ -52,7 +52,7 @@ def years(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/detail")
+@router.get("/revenue/detail")
 def show_by_year(
     tahun: int = Query(...),
     db: Session = Depends(get_db_main),
@@ -65,7 +65,7 @@ def show_by_year(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/destroy")
+@router.delete("/revenue/destroy")
 def destroy(
     tahun: int = Query(...),
     db: Session = Depends(get_db_main),
