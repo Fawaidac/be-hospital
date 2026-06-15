@@ -1,8 +1,8 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.models.category_model import CategoryModel
 from app.models.target_model import TargetModel
 from app.models.revenue_model import RevenueModel
-from app.models.revenue_detail import RevenueDetailModel
+from app.models.revenue_detail_model import RevenueDetailModel
 from fastapi import HTTPException, status
 
 BULAN_MAP = {
@@ -17,32 +17,39 @@ class RevenueService:
         categories = db.query(CategoryModel).all()
         targets = db.query(TargetModel).filter(TargetModel.tahun == tahun).all()
 
-        target_tahunan = {}
-        target_bulanan = {}
+        target_tahunan = {cat.name: 0 for cat in categories}
+        target_bulanan = {cat.name: 0 for cat in categories}
 
-        for cat in categories:
-            t_tahunan = next((t for t in targets if t.category_id == cat.id and t.type == 'tahunan'), None)
-            t_bulanan = next((t for t in targets if t.category_id == cat.id and t.type == 'bulanan'), None)
-            
-            target_tahunan[cat.name] = t_tahunan.amount if t_tahunan else 0
-            target_bulanan[cat.name] = t_bulanan.amount if t_bulanan else 0
+        for t in targets:
+            cat_name = next((c.name for c in categories if c.id == t.category_id), None)
+            if cat_name:
+                if t.type == 'tahunan':
+                    target_tahunan[cat_name] = t.amount
+                elif t.type == 'bulanan':
+                    target_bulanan[cat_name] = t.amount
 
         jumlah_target_tahunan = sum(target_tahunan.values())
         jumlah_target_bulanan = sum(target_bulanan.values())
 
-        revenues = db.query(RevenueModel).filter(RevenueModel.tahun == tahun).order_by(RevenueModel.bulan).all()
+        # FIX: Eager loading menggunakan relationship 'details', mirip dengan dengan ->with('details') di Laravel
+        revenues = db.query(RevenueModel)\
+            .options(joinedload(RevenueModel.details))\
+            .filter(RevenueModel.tahun == tahun)\
+            .order_by(RevenueModel.bulan)\
+            .all()
 
         realisasi_data = []
         summary_kategori = {cat.name: 0 for cat in categories}
 
         for bulan, bulan_name in BULAN_MAP.items():
+            # Cari data revenue bulan ini di memory hasil query di atas
             rev = next((r for r in revenues if r.bulan == bulan), None)
             
             data_kategori = []
             total_bulan = 0
 
-            # Tarik detail ke memory jika revenue ada untuk optimasi looping
-            details = db.query(RevenueDetailModel).filter(RevenueDetailModel.revenue_id == rev.id).all() if rev else []
+            # FIX: Ambil dari relasi objek memory `rev.details`, bukan menembak query DB lagi!
+            details = rev.details if rev else []
 
             for cat in categories:
                 detail = next((d for d in details if d.category_id == cat.id), None)
@@ -93,7 +100,7 @@ class RevenueService:
                 'grand_persentase_tahun': grand_persentase_tahun
             }
         }
-
+    
     @staticmethod
     def store_or_update(db: Session, data: dict):
         tahun = data['tahun']
@@ -105,7 +112,6 @@ class RevenueService:
             if not category:
                 raise HTTPException(status_code=400, detail=f"Kategori dengan code '{target_input['category_code']}' tidak ditemukan.")
 
-            # Model Eloquent updateOrCreate dikonversi ke query + edit/add di SQLAlchemy
             for t_type, key_amount in [('tahunan', 'target_tahunan'), ('bulanan', 'target_bulanan')]:
                 target_row = db.query(TargetModel).filter_by(tahun=tahun, category_id=category.id, type=t_type).first()
                 if target_row:
@@ -114,7 +120,7 @@ class RevenueService:
                     new_target = TargetModel(tahun=tahun, category_id=category.id, type=t_type, amount=target_input.get(key_amount, 0))
                     db.add(new_target)
 
-        db.flush() # Eksekusi id target sementara sebelum lanjut ke realisasi
+        db.flush()
 
         # 2. Simpan/Update Realisasi
         if 'realisasi' in data and data['realisasi']:
@@ -178,15 +184,15 @@ class RevenueService:
                 'target_bulanan': bulanan.amount if bulanan else 0,
             })
 
-        revenues = db.query(RevenueModel).filter(RevenueModel.tahun == tahun).order_by(RevenueModel.bulan).all()
+        # FIX: Tambahkan eager loading di get_by_year juga biar cepat
+        revenues = db.query(RevenueModel).options(joinedload(RevenueModel.details)).filter(RevenueModel.tahun == tahun).order_by(RevenueModel.bulan).all()
         realisasi_data = []
         
         for r in revenues:
             categories_data = []
-            details = db.query(RevenueDetailModel).filter_by(revenue_id=r.id).all()
             
             for cat in categories:
-                detail = next((d for d in details if d.category_id == cat.id), None)
+                detail = next((d for d in r.details if d.category_id == cat.id), None)
                 categories_data.append({
                     'category_code': cat.code,
                     'category_name': cat.name,

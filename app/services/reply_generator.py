@@ -1,7 +1,12 @@
+#app/services/reply_generator.py
 import random
+import logging
 import httpx
 from app.core.config import settings
 
+# Setup logging sederhana untuk mempermudah testing di terminal
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("ReviewBot")
 
 class ReviewBotService:
 
@@ -12,6 +17,7 @@ class ReviewBotService:
             return rating_val
         if isinstance(rating_val, str):
             val = rating_val.upper().strip()
+            # Mapping jika Google mengirimkan format Enum String
             mapping = {"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4, "FIVE": 5}
             if val in mapping:
                 return mapping[val]
@@ -87,7 +93,7 @@ class ReviewBotService:
 
     @staticmethod
     async def get_live_access_token() -> str:
-        """Menghasilkan Access Token baru yang segar menggunakan Refresh Token (Solusi Bot 24 Jam)"""
+        """Menghasilkan Access Token baru menggunakan Refresh Token"""
         url = "https://oauth2.googleapis.com/token"
         payload = {
             "client_id": settings.GOOGLE_CLIENT_ID,
@@ -101,21 +107,23 @@ class ReviewBotService:
                 response = await client.post(url, data=payload)
                 if response.status_code == 200:
                     return response.json().get("access_token", "")
+                logger.error(f"Gagal refresh token Google: {response.text}")
                 return ""
-            except Exception:
+            except Exception as e:
+                logger.error(f"Error koneksi saat refresh token: {str(e)}")
                 return ""
 
     @staticmethod
     async def send_reply_to_google(review_id: str, reply_text: str) -> bool:
-        """Fungsi resmi mengirim balasan ke Google Business Profile API (v4)"""
+        """Fungsi resmi mengirim balasan ke Google Business Profile API (v1 terbaru)"""
         account_id, location_id = ReviewBotService.get_clean_account_location_ids()
         
-        # Ambil token baru secara live sebelum menembak Google
         access_token = await ReviewBotService.get_live_access_token()
         if not access_token:
             return False
 
-        url = f"https://mybusiness.googleapis.com/v4/{account_id}/{location_id}/reviews/{review_id}/reply"
+        # Endpoint resmi Google Business Profile API v1
+        url = f"https://mybusinessmanagement.googleapis.com/v1/{account_id}/{location_id}/reviews/{review_id}:reply"
 
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -127,21 +135,28 @@ class ReviewBotService:
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.put(url, json=payload, headers=headers)
-                return response.status_code == 200
-            except Exception:
+                # Menggunakan POST untuk endpoint :reply v1
+                response = await client.post(url, json=payload, headers=headers)
+                if response.status_code == 200:
+                    logger.info(f"Berhasil membalas review ID: {review_id}")
+                    return True
+                logger.error(f"Gagal balas review Google: {response.text}")
+                return False
+            except Exception as e:
+                logger.error(f"Error koneksi saat balas review: {str(e)}")
                 return False
     
     @staticmethod
     async def fetch_and_sync_old_reviews() -> list:
-        """Fungsi untuk menarik daftar seluruh review lama dari Google API (v4)"""
+        """Fungsi untuk menarik daftar seluruh review lama dari Google API (v1 terbaru)"""
         account_id, location_id = ReviewBotService.get_clean_account_location_ids()
         
         access_token = await ReviewBotService.get_live_access_token()
         if not access_token:
             return []
 
-        url = f"https://mybusiness.googleapis.com/v4/{account_id}/{location_id}/reviews"
+        # Endpoint resmi Google Business Profile API v1 untuk list reviews
+        url = f"https://mybusinessmanagement.googleapis.com/v1/{account_id}/{location_id}/reviews"
         
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -154,6 +169,8 @@ class ReviewBotService:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("reviews", [])
+                logger.error(f"Gagal mengambil data review: {response.text}")
                 return []
-            except Exception:
+            except Exception as e:
+                logger.error(f"Error koneksi saat ambil review: {str(e)}")
                 return []

@@ -1,4 +1,4 @@
-# app/models/pde_model.py
+# app/models/komplain_model.py
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy import Column, Integer, String, Text, DateTime

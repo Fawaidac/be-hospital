@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, BigInteger, Numeric, DateTime, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.core.database import BaseMain
 
 class RevenueDetailModel(BaseMain):
@@ -12,3 +13,7 @@ class RevenueDetailModel(BaseMain):
     percentage = Column(Numeric(precision=5, scale=2), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # RELASI: Hubungkan balik ke RevenueModel dan CategoryModel
+    revenue = relationship("RevenueModel", back_populates="details")
+    category = relationship("CategoryModel")
