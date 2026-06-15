@@ -14,7 +14,7 @@ from app.routers import komplain, revenue, review, auth
 BaseMain.metadata.create_all(bind=engine_main)
 BasePSC.metadata.create_all(bind=engine_psc)
 
-app = FastAPI(title="RSUD dr. Soebandi - Google Review Bot API")
+app = FastAPI(title="RSUD dr. Soebandi - Backend API", description="Backend terpadu untuk sistem Google Review Bot, Manajemen Komplain (PSC), dan Laporan Pendapatan (Revenue).")
 
 replied_reviews_cache: set = set()
 
