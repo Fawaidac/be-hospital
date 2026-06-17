@@ -1,5 +1,5 @@
 # app/routers/review.py
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Body
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
@@ -21,39 +21,102 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
 
     if existing_review:
         return ApiResponse.error(message="This review ID has already been processed.", code=400)
+    
+    rating_int = ReviewBotService.parse_rating(payload.rating)
 
-    bot_reply = ReviewBotService.generate_reply_template(payload.rating)
+    is_asking = await ReviewBotService.is_customer_asking(payload.comment)
 
-    new_review = GoogleReviewModel(
-        review_id=payload.review_id,
-        reviewer_name=payload.reviewer_name,
-        rating=payload.rating,
-        comment=payload.comment,
-        reply_text=bot_reply,
-        status="pending",
-    )
-    db.add(new_review)
-    db.commit()  
-    db.refresh(new_review)
+    if rating_int in [1, 2] or is_asking:
+        new_review = GoogleReviewModel(
+            review_id=payload.review_id,
+            reviewer_name=payload.reviewer_name,
+            rating=rating_int,
+            comment=payload.comment,
+            reply_text=None, 
+            status="pending",
+        )
+        db.add(new_review)
+        db.commit()
+        db.refresh(new_review)
 
-    is_success = await ReviewBotService.send_reply_to_google(payload.review_id, bot_reply)
+        log_msg = "Pertanyaan terdeteksi oleh AI." if is_asking else "Review rating rendah."
+        return ApiResponse.success(
+            data=WebhookData(
+                review_id=new_review.review_id,
+                reviewer_name=new_review.reviewer_name,
+                rating=new_review.rating,
+                bot_status=new_review.status,
+                reply_text="",
+            ),
+            message=f"{log_msg} Dialihkan ke antrean manual dashboard Humas.",
+            code=201
+        )
+    
+    else:
 
-    new_review.status = "replied" if is_success else "failed"
-    db.commit()
+        bot_reply = ReviewBotService.generate_reply_template(payload.rating)
 
-    return ApiResponse.success(
-        data=WebhookData(
-            review_id=new_review.review_id,
-            reviewer_name=new_review.reviewer_name,
-            rating=new_review.rating,
-            bot_status=new_review.status,
+        new_review = GoogleReviewModel(
+            review_id=payload.review_id,
+            reviewer_name=payload.reviewer_name,
+            rating=payload.rating,
+            comment=payload.comment,
             reply_text=bot_reply,
-        ),
-        message="The review has been saved and replied to by the bot.",
-        code=201
-    )
+            status="pending",
+        )
+        db.add(new_review)
+        db.commit()  
+        db.refresh(new_review)
 
+        is_success = await ReviewBotService.send_reply_to_google(payload.review_id, bot_reply)
 
+        new_review.status = "replied" if is_success else "failed"
+        db.commit()
+
+        return ApiResponse.success(
+            data=WebhookData(
+                review_id=new_review.review_id,
+                reviewer_name=new_review.reviewer_name,
+                rating=new_review.rating,
+                bot_status=new_review.status,
+                reply_text=bot_reply,
+            ),
+            message="The review has been saved and replied to by the bot.",
+            code=201
+        )
+
+@router.post("/reviews/{review_id}/reply", response_model=BaseResponse[dict])
+async def reply_review_manually(
+    review_id: str,
+    reply_text: str = Body(..., embed=True),
+    db: Session = Depends(get_db_main),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Endpoint khusus untuk Humas membalas review bintang 1 & 2 secara manual melalui Dashboard"""
+    review = db.query(GoogleReviewModel).filter(GoogleReviewModel.review_id == review_id).first()
+
+    if not review:
+        return ApiResponse.error(message="Data review tidak ditemukan di database.", code=404)
+
+    if review.status == "replied":
+        return ApiResponse.error(message="Review ini sudah pernah dibalas sebelumnya.", code=400)
+
+    is_success = await ReviewBotService.send_reply_to_google(review_id, reply_text)
+
+    if is_success:
+        review.reply_text = reply_text
+        review.status = "replied"
+        db.commit()
+        return ApiResponse.success(
+            data={"review_id": review_id, "status": "replied"},
+            message="Balasan manual Anda berhasil dikirim ke Google Maps!",
+            code=200
+        )
+    else:
+        review.status = "failed"
+        db.commit()
+        return ApiResponse.error(message="Gagal mengirimkan balasan ke Google API. Periksa koneksi/token.", code=500)
+    
 @router.get("/reviews", response_model=BaseResponse[List[ReviewResponse]])
 def get_all_reviews_for_dashboard(
     db: Session = Depends(get_db_main),

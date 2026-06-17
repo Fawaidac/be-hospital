@@ -32,6 +32,9 @@ class ReviewBotService:
         """Logika penentuan balasan otomatis berdasarkan bintang 1-5 dengan format formal"""
         rating_int = ReviewBotService.parse_rating(rating)
 
+        # if rating_int in [1, 2]:
+        #     return ""
+        
         footer = (
             "\n\nApabila membutuhkan informasi lebih lanjut atau ingin menyampaikan aspirasi, "
             "silakan menghubungi kami melalui:\n"
@@ -170,3 +173,48 @@ class ReviewBotService:
             except Exception as e:
                 logger.error(f"Error koneksi saat ambil review: {str(e)}")
                 return []
+
+    @staticmethod
+    async def is_customer_asking(comment_text: str) -> bool:
+        """Menggunakan Gemini AI untuk mendeteksi apakah komentar mengandung unsur pertanyaan/butuh info"""
+        if not comment_text or len(comment_text.strip()) < 3:
+            return False
+
+        if not hasattr(settings, "GEMINI_API_KEY") or not settings.GEMINI_API_KEY:
+            logger.warning("Gemini API Key belum dikonfigurasi. Menggunakan fallback.")
+            return False
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
+        
+        prompt = (
+            "Analisis teks ulasan pasien Rumah Sakit berikut. "
+            "Tentukan apakah teks tersebut mengandung unsur PERTANYAAN, permintaan informasi, "
+            "atau kebingungan yang membutuhkan jawaban edukatif (Meskipun ditulis singkat, typo, atau bahasa daerah).\n\n"
+            f"Teks Pasien: \"{comment_text}\"\n\n"
+            "Aturan respon: Jawab hanya dengan satu kata: PERTANYAAN jika itu pertanyaan/butuh info, "
+            "atau REVIEW jika itu murni ulasan/pujian/makian biasa tanpa pertanyaan. Jangan beri tanda baca atau alasan."
+        )
+
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.0, 
+                "maxOutputTokens": 5
+            }
+        }
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(url, json=payload, timeout=5.0)
+                if response.status_code == 200:
+                    res_json = response.json()
+                    ai_reply = res_json['candidates'][0]['content']['parts'][0]['text'].strip().upper()
+                    
+                    logger.info(f"Analisis AI untuk '{comment_text}': {ai_reply}")
+                    return "PERTANYAAN" in ai_reply
+                
+                logger.error(f"Gemini API bermasalah (Status {response.status_code}): {response.text}")
+                return False
+            except Exception as e:
+                logger.error(f"Gagal koneksi ke Gemini API: {str(e)}")
+                return False
