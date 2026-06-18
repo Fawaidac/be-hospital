@@ -9,6 +9,7 @@ from app.models.user import UserModel
 from app.schemas.base import BaseResponse, ApiResponse
 from app.schemas.auth import CheckPinRequest, LoginRequest, LoginData, UserData
 from app.services.auth_service import AuthService
+from app.services.logger_service import ActivityLogger
 
 router = APIRouter(prefix="/api", tags=["Auth"])
 
@@ -25,12 +26,24 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
     user = db.query(UserModel).filter(UserModel.username == payload.username).first()
 
     if not user or not verify_password(payload.password, user.password):
+        ActivityLogger.log(
+            db=db,
+            username=payload.username,
+            action="LOGIN_FAILED",
+            description=f"Failed login attempt for username '{payload.username}'."
+        )
         return ApiResponse.error(
             message="Invalid username or password.",
             code=status.HTTP_401_UNAUTHORIZED
         )
 
     access_token = create_access_token(data={"sub": user.username})
+    ActivityLogger.log(
+        db=db,
+        username=user.username,
+        action="LOGIN_SUCCESS",
+        description=f"User '{user.username}' logged in successfully."
+    )
 
     return ApiResponse.success(
         data={"token": access_token},
@@ -64,6 +77,7 @@ def get_me(current_user: UserModel = Depends(get_current_user)):
 )
 async def check_pin(
     payload: CheckPinRequest,
+    db: Session = Depends(get_db_main),
     current_user: UserModel = Depends(super_admin_only)
 ):
     """
@@ -74,7 +88,20 @@ async def check_pin(
 
     if not is_valid:
         code = status.HTTP_400_BAD_REQUEST if "does not have a PIN" in error_message else status.HTTP_403_FORBIDDEN
+        ActivityLogger.log(
+            db=db,
+            username=current_user.username,
+            action="PIN_CHECK_FAILED",
+            description=f"User '{current_user.username}' failed PIN verification."
+        )
         return ApiResponse.error(message=error_message, code=code)
+
+    ActivityLogger.log(
+        db=db,
+        username=current_user.username,
+        action="PIN_CHECK_SUCCESS",
+        description=f"User '{current_user.username}' verified their PIN successfully."
+    )
 
     return ApiResponse.success(
         data=True,

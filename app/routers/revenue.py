@@ -8,6 +8,7 @@ from app.models.user import UserModel
 from app.schemas.base import ApiResponse
 from app.schemas.revenue import RevenueStoreRequest
 from app.services.revenue_service import RevenueService
+from app.services.logger_service import ActivityLogger
 
 router = APIRouter(prefix="/api", tags=["Revenue"])
 
@@ -33,6 +34,12 @@ def store(
 ):
     try:
         res = RevenueService.store_or_update(db, payload.dict())
+        ActivityLogger.log(
+            db=db,
+            username=current_user.username,
+            action="REVENUE_SAVE",
+            description=f"User '{current_user.username}' saved target and realization data for year {payload.tahun}."
+        )
         return ApiResponse.success(data=res, message="Target and realization data saved successfully.", code=200)
     except HTTPException as he:
         raise he
@@ -73,6 +80,12 @@ def destroy(
 ):
     try:
         RevenueService.delete_by_year(db, tahun)
+        ActivityLogger.log(
+            db=db,
+            username=current_user.username,
+            action="REVENUE_DELETE",
+            description=f"User '{current_user.username}' deleted annual report data for year {tahun}."
+        )
         return ApiResponse.success(data=None, message="Annual report data deleted successfully.", code=200)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

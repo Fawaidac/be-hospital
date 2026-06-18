@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app.core.database import SessionLocalMain
 from app.services.review_bot import ReviewBotService
+from app.services.logger_service import ActivityLogger
 
 
 def save_review_to_db_sync(
@@ -34,6 +35,11 @@ def save_review_to_db_sync(
             "status": "replied"
         })
         db.commit()
+        ActivityLogger.log(
+            db=db,
+            action="REVIEW_BOT_REPLY",
+            description=f"Bot automatically replied to review '{review_id}' with rating {ReviewBotService.parse_rating(rating)}."
+        )
         print(f"💾 [ReviewBot] Berhasil menyimpan balasan ulasan ID {review_id} ke DB.")
     except Exception as db_err:
         db.rollback()

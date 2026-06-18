@@ -12,6 +12,7 @@ from app.schemas.review import GoogleReviewWebhook, ReviewResponse, WebhookData,
 from app.schemas.base import BaseResponse, ApiResponse
 from app.services.review_bot import ReviewBotService
 from app.models.review_template import ReviewTemplateModel
+from app.services.logger_service import ActivityLogger
 
 router = APIRouter(prefix="/api", tags=["Review"])
 
@@ -39,6 +40,11 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
         db.add(new_review)
         db.commit()
         db.refresh(new_review)
+        ActivityLogger.log(
+            db=db,
+            action="REVIEW_MANUAL_QUEUE",
+            description=f"Review '{new_review.review_id}' from '{new_review.reviewer_name}' was added to the manual queue."
+        )
 
         log_msg = "Pertanyaan terdeteksi oleh AI." if is_asking else "Review rating rendah."
         return ApiResponse.success(
@@ -74,6 +80,11 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
 
         new_review.status = "replied" if is_success else "failed"
         db.commit()
+        ActivityLogger.log(
+            db=db,
+            action="REVIEW_AUTO_REPLY" if is_success else "REVIEW_AUTO_REPLY_FAILED",
+            description=f"Bot {'replied to' if is_success else 'failed to reply to'} review '{new_review.review_id}' with rating {new_review.rating}."
+        )
 
         return ApiResponse.success(
             data=WebhookData(
@@ -109,6 +120,12 @@ async def reply_review_manually(
         review.reply_text = reply_text
         review.status = "replied"
         db.commit()
+        ActivityLogger.log(
+            db=db,
+            username=current_user.username,
+            action="REVIEW_MANUAL_REPLY",
+            description=f"User '{current_user.username}' manually replied to review '{review_id}'."
+        )
         return ApiResponse.success(
             data={"review_id": review_id, "status": "replied"},
             message="Balasan manual Anda berhasil dikirim ke Google Maps!",
@@ -117,6 +134,12 @@ async def reply_review_manually(
     else:
         review.status = "failed"
         db.commit()
+        ActivityLogger.log(
+            db=db,
+            username=current_user.username,
+            action="REVIEW_MANUAL_REPLY_FAILED",
+            description=f"User '{current_user.username}' failed to send a manual reply for review '{review_id}'."
+        )
         return ApiResponse.error(message="Gagal mengirimkan balasan ke Google API. Periksa koneksi/token.", code=500)
     
 @router.get("/reviews", response_model=BaseResponse[List[ReviewResponse]])
@@ -183,6 +206,12 @@ async def sync_old_reviews(
 
     if count_saved > 0:
         db.commit()
+        ActivityLogger.log(
+            db=db,
+            username=current_user.username,
+            action="REVIEW_SYNC",
+            description=f"User '{current_user.username}' synchronized {count_saved} old reviews."
+        )
 
     return ApiResponse.success(
         data={"synchronized_count": count_saved},
@@ -210,6 +239,12 @@ def create_review_template(
     )
     db.add(new_template)
     db.commit()
+    ActivityLogger.log(
+        db=db,
+        username=current_user.username,
+        action="REVIEW_TEMPLATE_CREATE",
+        description=f"User '{current_user.username}' created an auto-reply template for {payload.rating}-star reviews."
+    )
     
     return ApiResponse.success(data={"rating": payload.rating}, message="Template baru berhasil disimpan.", code=201)   
 
@@ -252,6 +287,12 @@ def update_review_template(
         
     template.template_text = template_text
     db.commit()
+    ActivityLogger.log(
+        db=db,
+        username=current_user.username,
+        action="REVIEW_TEMPLATE_UPDATE",
+        description=f"User '{current_user.username}' updated the auto-reply template for {rating}-star reviews."
+    )
     
     return ApiResponse.success(data={"rating": rating}, message="Template berhasil diperbarui.", code=200)
 
@@ -269,6 +310,12 @@ def delete_review_template(
 
     db.delete(template)
     db.commit()
+    ActivityLogger.log(
+        db=db,
+        username=current_user.username,
+        action="REVIEW_TEMPLATE_DELETE",
+        description=f"User '{current_user.username}' deleted the auto-reply template for {rating}-star reviews."
+    )
 
     return ApiResponse.success(
         data={"deleted_rating": rating},

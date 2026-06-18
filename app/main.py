@@ -4,14 +4,13 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse 
 from fastapi.exceptions import RequestValidationError
 from fastapi.templating import Jinja2Templates 
-from sqlalchemy import text
 from dotenv import load_dotenv
 
 from app.core.database import BaseMain, BasePSC, engine_main, engine_psc
 from app.core.security import AuthException
 from app.schemas.base import ApiResponse
 from app.services.review_service import google_review_bot_worker
-from app.routers import komplain, revenue, review, auth
+from app.routers import komplain, log, revenue, review, auth
 
 load_dotenv()
 
@@ -71,3 +70,4 @@ app.include_router(auth.router)
 app.include_router(review.router)
 app.include_router(komplain.router)
 app.include_router(revenue.router)
+app.include_router(log.router)
