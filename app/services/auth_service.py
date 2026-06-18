@@ -1,22 +1,29 @@
 # app/services/auth_service.py
-import hashlib
+from sqlalchemy.orm import Session
+
+from app.core.security import hash_password, needs_hash_upgrade, verify_password
 from app.models.user import UserModel
 
 
 class AuthService:
 
     @staticmethod
-    def verify_pin(current_user: UserModel, pin_input: str) -> tuple[bool, str]:
+    def verify_pin(current_user: UserModel, pin_input: str, db: Session = None) -> tuple[bool, str, bool]:
         """
-        Verifikasi PIN 6 digit user menggunakan hash SHA-256.
-        Returns: (is_valid: bool, error_message: str)
+        Verify PIN with Argon2 while supporting legacy SHA-256 hashes.
+        Returns: (is_valid, error_message, was_upgraded)
         """
         if not current_user.pin:
-            return False, "User does not have a PIN."
+            return False, "User does not have a PIN.", False
 
-        input_pin_hash = hashlib.sha256(pin_input.encode("utf-8")).hexdigest()
+        if not verify_password(pin_input, current_user.pin):
+            return False, "Invalid PIN.", False
 
-        if input_pin_hash != current_user.pin:
-            return False, "Invalid PIN."
+        was_upgraded = False
+        if needs_hash_upgrade(current_user.pin):
+            current_user.pin = hash_password(pin_input)
+            was_upgraded = True
+            if db is not None:
+                db.commit()
 
-        return True, ""
+        return True, "", was_upgraded

@@ -1,9 +1,11 @@
 #app/core/security.py
 import hashlib
 import jwt
+import re
 from datetime import datetime, timedelta, timezone
 from fastapi import Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -28,19 +30,42 @@ class CustomHTTPBearer(HTTPBearer):
             raise AuthException(message="Unauthorized, Invalid Token Format", status_code=401)
 
 security = CustomHTTPBearer()
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+SHA256_HEX_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
+
+
+def is_legacy_sha256_hash(hashed_value: str) -> bool:
+    """Detect legacy MySQL SHA2(value, 256)-style hashes."""
+    return bool(hashed_value and SHA256_HEX_PATTERN.fullmatch(hashed_value))
+
+
+def needs_hash_upgrade(hashed_value: str) -> bool:
+    return is_legacy_sha256_hash(hashed_value)
+
+
+def verify_legacy_sha256(plain_value: str, hashed_value: str) -> bool:
+    try:
+        input_hash = hashlib.sha256(plain_value.encode("utf-8")).hexdigest()
+        return input_hash == hashed_value
+    except Exception:
+        return False
+
 
 def hash_password(password: str) -> str:
-    """Mengubah plain password menjadi hash SHA-256 sesuai standar MySQL SHA2(str, 256)."""
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    """Hash a password/PIN using Argon2 for new and upgraded credentials."""
+    return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Memverifikasi password dengan mengubah inputan user menjadi SHA-256 
-    lalu dicocokkan dengan hash statis yang ada di DB."""
+    """Verify Argon2 hashes while keeping legacy SHA-256 hashes compatible."""
+    if not hashed_password:
+        return False
+
+    if is_legacy_sha256_hash(hashed_password):
+        return verify_legacy_sha256(plain_password, hashed_password)
+
     try:
-        input_hash = hashlib.sha256(plain_password.encode("utf-8")).hexdigest()
-        
-        return input_hash == hashed_password
+        return pwd_context.verify(plain_password, hashed_password)
     except Exception:
         return False
 

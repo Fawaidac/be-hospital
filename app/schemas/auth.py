@@ -1,5 +1,5 @@
 # app/schemas/auth.py
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional
 
@@ -29,6 +29,11 @@ class UserData(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("pin", mode="before")
+    @classmethod
+    def mask_pin(cls, value):
+        return "****" if value else ""
 
 
 class CheckPinRequest(BaseModel):

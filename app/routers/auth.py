@@ -1,10 +1,15 @@
-# app/routers/auth.py
-import hashlib
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db_main
-from app.core.security import super_admin_only, verify_password, create_access_token, get_current_user
+from app.core.security import (
+    create_access_token,
+    get_current_user,
+    hash_password,
+    needs_hash_upgrade,
+    super_admin_only,
+    verify_password,
+)
 from app.models.user import UserModel
 from app.schemas.base import BaseResponse, ApiResponse
 from app.schemas.auth import CheckPinRequest, LoginRequest, LoginData, UserData
@@ -35,6 +40,17 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
         return ApiResponse.error(
             message="Invalid username or password.",
             code=status.HTTP_401_UNAUTHORIZED
+        )
+
+    password_was_upgraded = needs_hash_upgrade(user.password)
+    if password_was_upgraded:
+        user.password = hash_password(payload.password)
+        db.commit()
+        ActivityLogger.log(
+            db=db,
+            username=user.username,
+            action="PASSWORD_HASH_UPGRADED",
+            description=f"User '{user.username}' password hash was automatically upgraded from SHA-256 to Argon2."
         )
 
     access_token = create_access_token(data={"sub": user.username})
@@ -84,7 +100,7 @@ async def check_pin(
     Endpoint untuk mencocokkan input PIN 6 digit (hanya Superadmin).
     Menggunakan hash SHA-256 untuk verifikasi.
     """
-    is_valid, error_message = AuthService.verify_pin(current_user, payload.pin)
+    is_valid, error_message, pin_was_upgraded = AuthService.verify_pin(current_user, payload.pin, db)
 
     if not is_valid:
         code = status.HTTP_400_BAD_REQUEST if "does not have a PIN" in error_message else status.HTTP_403_FORBIDDEN
@@ -95,6 +111,14 @@ async def check_pin(
             description=f"User '{current_user.username}' failed PIN verification."
         )
         return ApiResponse.error(message=error_message, code=code)
+
+    if pin_was_upgraded:
+        ActivityLogger.log(
+            db=db,
+            username=current_user.username,
+            action="PIN_HASH_UPGRADED",
+            description=f"User '{current_user.username}' PIN hash was automatically upgraded from SHA-256 to Argon2."
+        )
 
     ActivityLogger.log(
         db=db,
