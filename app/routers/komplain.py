@@ -38,7 +38,7 @@ def get_komplain(
             nomor_act=nomor_act,
             page=page
         )
-        return ApiResponse.success(data=data, message="get data komplain success", code=200)
+        return ApiResponse.success(data=data, message="Complaint data retrieved successfully.", code=200)
     except Exception as e:
         return ApiResponse.error(message=str(e), code=500)
 
@@ -54,7 +54,7 @@ def get_komplain_dashboard(
 ):
     try:
         data = KomplainService.get_dashboard_count(db=db)
-        return ApiResponse.success(data=data, message="get data dashboard success", code=200)
+        return ApiResponse.success(data=data, message="Dashboard data retrieved successfully.", code=200)
     except Exception as e:
         return ApiResponse.error(message=str(e), code=500)
 
@@ -70,6 +70,6 @@ def get_pde_teams(
 ):
     try:
         data = KomplainService.get_data_team_pde(db=db)
-        return ApiResponse.success(data=data, message="get data team PDE success", code=200)
+        return ApiResponse.success(data=data, message="PDE team data retrieved successfully.", code=200)
     except Exception as e:
         return ApiResponse.error(message=str(e), code=500)

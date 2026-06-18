@@ -28,58 +28,21 @@ class ReviewBotService:
             return 3
 
     @staticmethod
-    def generate_reply_template(rating) -> str:
-        """Logika penentuan balasan otomatis berdasarkan bintang 1-5 dengan format formal"""
+    async def generate_reply_template(rating, db_session) -> str:
+        """Mengambil balasan otomatis secara dinamis dari database master template"""
+        from app.models.review_template import ReviewTemplateModel
+        
         rating_int = ReviewBotService.parse_rating(rating)
 
-        # if rating_int in [1, 2]:
-        #     return ""
-        
-        footer = (
-            "\n\nApabila membutuhkan informasi lebih lanjut atau ingin menyampaikan aspirasi, "
-            "silakan menghubungi kami melalui:\n"
-            "☎️ Telepon/WA: 08113503500\n"
-            "📧 Email: rsd.soebandi@jemberkab.go.id\n\n"
-            "Ikuti juga informasi pelayanan terbaru kami melalui:\n"
-            "📸 Instagram: @rsddrsoebandi\n"
-            "👥 Facebook: RSD Dokter Soebandi Jember\n"
-            "🎵 TikTok: RSD dr. Soebandi\n"
-            "🎥 YouTube: RSD dr. Soebandi"
-        )
+        if rating_int in [1, 2]:
+            return ""
 
-        templates = {
-            5: [
-                "Terima kasih atas apresiasi dan kepercayaan yang telah diberikan kepada RSD dr. Soebandi. "
-                "Masukan positif dari Bapak/Ibu menjadi motivasi bagi kami untuk terus meningkatkan mutu pelayanan. "
-                "Semoga Bapak/Ibu beserta keluarga selalu diberikan kesehatan." + footer,
+        db_template = db_session.query(ReviewTemplateModel).filter(ReviewTemplateModel.rating == rating_int).first()
 
-                "Terima kasih atas ulasan bintang 5 dan kepercayaan Bapak/Ibu kepada RSD dr. Soebandi. "
-                "Kami berkomitmen untuk selalu mempertahankan dan memberikan pelayanan medis terbaik bagi masyarakat. "
-                "Semoga sehat selalu." + footer
-            ],
-            4: [
-                "Terima kasih atas ulasan dan penilaian baik yang Bapak/Ibu berikan kepada RSD dr. Soebandi. "
-                "Segala masukan akan terus kami jadikan acuan untuk berbenah demi kenyamanan pasien yang lebih baik lagi. "
-                "Semoga Bapak/Ibu selalu diberikan kesehatan." + footer
-            ],
-            3: [
-                "Terima kasih atas masukan yang Bapak/Ibu sampaikan mengenai pelayanan di RSD dr. Soebandi. "
-                "Kami memohon maaf apabila terdapat aspek pelayanan atau kenyamanan yang belum maksimal selama berada di rumah sakit kami. "
-                "Catatan ini akan segera kami koordinasikan secara internal untuk perbaikan ke depan." + footer
-            ],
-            2: [
-                "Kami memohon maaf yang sebesar-besarnya atas ketidaknyamanan yang Bapak/Ibu alami selama menjalani pelayanan di RSD dr. Soebandi. "
-                "Kenyamanan dan keselamatan pasien adalah prioritas kami. Agar kami dapat mengidentifikasi masalah dan melakukan tindakan korektif yang tepat, "
-                "mohon kesediaan Bapak/Ibu untuk menyampaikan detail kendala tersebut melalui kontak resmi di bawah ini." + footer
-            ],
-            1: [
-                "Kami memohon maaf yang sebesar-besarnya atas pengalaman kurang menyenangkan dan pelayanan yang mengecewakan Bapak/Ibu di RSD dr. Soebandi. "
-                "Kritik serta keluhan dari Bapak/Ibu menjadi perhatian dan catatan evaluasi yang sangat serius bagi pihak manajemen. "
-                "Kami sangat mengharapkan Bapak/Ibu dapat menghubungi Humas/Layanan Pengaduan kami di bawah ini agar permasalahan ini dapat segera kami selesaikan secara langsung." + footer
-            ]
-        }
+        if db_template and db_template.template_text:
+            return db_template.template_text
 
-        return random.choice(templates.get(rating_int, templates[3]))
+        return "Terima kasih atas ulasan dan masukan yang Bapak/Ibu berikan kepada RSD dr. Soebandi. Semoga sehat selalu."
 
     @staticmethod
     def get_clean_account_location_ids() -> tuple[str, str]:

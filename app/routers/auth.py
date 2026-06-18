@@ -26,7 +26,7 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
 
     if not user or not verify_password(payload.password, user.password):
         return ApiResponse.error(
-            message="Username atau password salah.",
+            message="Invalid username or password.",
             code=status.HTTP_401_UNAUTHORIZED
         )
 
@@ -34,7 +34,7 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
 
     return ApiResponse.success(
         data={"token": access_token},
-        message="Login berhasil.",
+        message="Login successful.",
         code=status.HTTP_200_OK
     )
 
@@ -73,11 +73,11 @@ async def check_pin(
     is_valid, error_message = AuthService.verify_pin(current_user, payload.pin)
 
     if not is_valid:
-        code = status.HTTP_400_BAD_REQUEST if "memiliki PIN" in error_message else status.HTTP_403_FORBIDDEN
+        code = status.HTTP_400_BAD_REQUEST if "does not have a PIN" in error_message else status.HTTP_403_FORBIDDEN
         return ApiResponse.error(message=error_message, code=code)
 
     return ApiResponse.success(
         data=True,
-        message="PIN valid.",
+        message="PIN is valid.",
         code=status.HTTP_200_OK
     )

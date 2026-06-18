@@ -106,7 +106,7 @@ class RevenueService:
         for target_input in data['targets']:
             category = next((c for c in categories if c.code == target_input['category_code']), None)
             if not category:
-                raise HTTPException(status_code=400, detail=f"Kategori dengan code '{target_input['category_code']}' tidak ditemukan.")
+                raise HTTPException(status_code=400, detail=f"Category with code '{target_input['category_code']}' was not found.")
 
             for t_type, key_amount in [('tahunan', 'target_tahunan'), ('bulanan', 'target_bulanan')]:
                 target_row = db.query(TargetModel).filter_by(tahun=tahun, category_id=category.id, type=t_type).first()
@@ -131,7 +131,7 @@ class RevenueService:
                 for cat_input in realisasi_bulan['categories']:
                     category = next((c for c in categories if c.code == cat_input['category_code']), None)
                     if not category:
-                        raise HTTPException(status_code=400, detail=f"Kategori dengan code '{cat_input['category_code']}' tidak ditemukan.")
+                        raise HTTPException(status_code=400, detail=f"Category with code '{cat_input['category_code']}' was not found.")
 
                     target_bulanan_row = db.query(TargetModel).filter_by(tahun=tahun, category_id=category.id, type='bulanan').first()
                     target_bulanan_amount = target_bulanan_row.amount if target_bulanan_row else 0
@@ -220,4 +220,4 @@ class RevenueService:
             return True
         except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Gagal menghapus data: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete data: {str(e)}")

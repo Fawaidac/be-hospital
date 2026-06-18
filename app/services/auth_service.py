@@ -12,11 +12,11 @@ class AuthService:
         Returns: (is_valid: bool, error_message: str)
         """
         if not current_user.pin:
-            return False, "User tidak memiliki PIN."
+            return False, "User does not have a PIN."
 
         input_pin_hash = hashlib.sha256(pin_input.encode("utf-8")).hexdigest()
 
         if input_pin_hash != current_user.pin:
-            return False, "PIN salah."
+            return False, "Invalid PIN."
 
         return True, ""

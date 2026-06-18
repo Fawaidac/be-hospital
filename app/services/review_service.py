@@ -62,13 +62,16 @@ async def google_review_bot_worker(replied_reviews_cache: set):
                 if review_id not in replied_reviews_cache and not existing_reply:
                     print(f"📌 [ReviewBot] Menemukan review baru (ID: {review_id}) dengan Rating: {rating}")
 
-                    reply_text = ReviewBotService.generate_reply_template(rating)
-                    success = await ReviewBotService.send_reply_to_google(review_id, reply_text)
+                    db_session = SessionLocalMain()
+                    try:
+                        bot_reply = await ReviewBotService.generate_reply_template(rating, db_session)
+                    finally:
+                        db_session.close()
+                    success = await ReviewBotService.send_reply_to_google(review_id, bot_reply)
 
                     if success:
                         replied_reviews_cache.add(review_id)
 
-                        # Jalankan penyimpanan DB di threadpool agar tidak memblokir event loop
                         loop = asyncio.get_running_loop()
                         await loop.run_in_executor(
                             None,
@@ -77,7 +80,7 @@ async def google_review_bot_worker(replied_reviews_cache: set):
                             r.get("reviewer", {}).get("displayName", "Pasien"),
                             rating,
                             r.get("comment", ""),
-                            reply_text
+                            bot_reply
                         )
 
                         await asyncio.sleep(random.randint(3, 7))

@@ -33,3 +33,8 @@ class WebhookData(BaseModel):
     rating: int = Field(..., ge=1, le=5)
     bot_status: str      
     reply_text: str
+
+
+class UpdateTemplateRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    template_text: str

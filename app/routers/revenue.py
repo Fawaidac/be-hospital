@@ -14,13 +14,13 @@ router = APIRouter(prefix="/api", tags=["Revenue"])
 
 @router.get("/revenue")
 def index(
-    tahun: int = Query(..., description="Tahun wajib diisi"),
+    tahun: int = Query(..., description="Year is required"),
     db: Session = Depends(get_db_main),
     current_user: UserModel = Depends(get_current_user)
 ):
     try:
         data = RevenueService.get_dashboard(db, tahun)
-        return ApiResponse.success(data=data, message="Get data berhasil", code=200)
+        return ApiResponse.success(data=data, message="Data retrieved successfully.", code=200)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -33,7 +33,7 @@ def store(
 ):
     try:
         res = RevenueService.store_or_update(db, payload.dict())
-        return ApiResponse.success(data=res, message="Data target dan realisasi berhasil disimpan", code=200)
+        return ApiResponse.success(data=res, message="Target and realization data saved successfully.", code=200)
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -47,7 +47,7 @@ def years(
 ):
     try:
         data = RevenueService.get_year_list(db)
-        return ApiResponse.success(data=data, message="Get list tahun berhasil", code=200)
+        return ApiResponse.success(data=data, message="Year list retrieved successfully.", code=200)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -60,7 +60,7 @@ def show_by_year(
 ):
     try:
         data = RevenueService.get_by_year(db, tahun)
-        return ApiResponse.success(data=data, message="Get detail data tahun berhasil", code=200)
+        return ApiResponse.success(data=data, message="Year detail data retrieved successfully.", code=200)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -73,6 +73,6 @@ def destroy(
 ):
     try:
         RevenueService.delete_by_year(db, tahun)
-        return ApiResponse.success(data=None, message="Data laporan tahunan berhasil dihapus", code=200)
+        return ApiResponse.success(data=None, message="Annual report data deleted successfully.", code=200)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

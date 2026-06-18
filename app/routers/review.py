@@ -8,9 +8,10 @@ from app.core.database import get_db_main
 from app.core.security import get_current_user
 from app.models.review import GoogleReviewModel
 from app.models.user import UserModel
-from app.schemas.review import GoogleReviewWebhook, ReviewResponse, WebhookData
+from app.schemas.review import GoogleReviewWebhook, ReviewResponse, WebhookData, UpdateTemplateRequest
 from app.schemas.base import BaseResponse, ApiResponse
 from app.services.review_bot import ReviewBotService
+from app.models.review_template import ReviewTemplateModel
 
 router = APIRouter(prefix="/api", tags=["Review"])
 
@@ -54,7 +55,7 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
     
     else:
 
-        bot_reply = ReviewBotService.generate_reply_template(payload.rating)
+        bot_reply = await ReviewBotService.generate_reply_template(payload.rating, db)
 
         new_review = GoogleReviewModel(
             review_id=payload.review_id,
@@ -64,6 +65,7 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
             reply_text=bot_reply,
             status="pending",
         )
+
         db.add(new_review)
         db.commit()  
         db.refresh(new_review)
@@ -147,7 +149,7 @@ async def sync_old_reviews(
             rating = ReviewBotService.parse_rating(rev.get("starRating"))
             comment = rev.get("comment", "")
             reviewer_name = rev.get("reviewer", {}).get("displayName", "Pasien")
-            bot_reply = ReviewBotService.generate_reply_template(rating)
+            bot_reply = await ReviewBotService.generate_reply_template(rating, db)
 
             has_replied = "reviewReply" in rev
             status_reply = "replied"
@@ -185,5 +187,91 @@ async def sync_old_reviews(
     return ApiResponse.success(
         data={"synchronized_count": count_saved},
         message=f"Successfully synchronized {count_saved} old reviews.",
+        code=200
+    )
+
+
+
+@router.post("/reviews/templates", response_model=BaseResponse[dict])
+def create_review_template(
+    payload: UpdateTemplateRequest,
+    db: Session = Depends(get_db_main),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Endpoint murni untuk menambah template baru (Create)"""
+    existing_template = db.query(ReviewTemplateModel).filter(ReviewTemplateModel.rating == payload.rating).first()
+    
+    if existing_template:
+        return ApiResponse.error(message=f"Template untuk bintang {payload.rating} sudah ada. Gunakan method PUT untuk update.", code=400)
+        
+    new_template = ReviewTemplateModel(
+        rating=payload.rating,
+        template_text=payload.template_text
+    )
+    db.add(new_template)
+    db.commit()
+    
+    return ApiResponse.success(data={"rating": payload.rating}, message="Template baru berhasil disimpan.", code=201)   
+
+@router.get("/reviews/templates", response_model=BaseResponse[List[dict]])
+def get_all_review_templates(
+    db: Session = Depends(get_db_main),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Endpoint untuk mengambil semua daftar master template yang ada di database"""
+    templates = db.query(ReviewTemplateModel).order_by(ReviewTemplateModel.rating.asc()).all()
+    
+    data_list = [
+        {
+            "id": t.id,
+            "rating": t.rating,
+            "template_text": t.template_text,
+            "updated_at": t.updated_at
+        }
+        for t in templates
+    ]
+
+    return ApiResponse.success(
+        data=data_list,
+        message="get all review templates success",
+        code=200
+    )
+
+@router.put("/reviews/templates/{rating}", response_model=BaseResponse[dict])
+def update_review_template(
+    rating: int,
+    template_text: str = Body(..., embed=True),
+    db: Session = Depends(get_db_main),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Endpoint murni untuk mengubah isi template yang sudah ada (Update)"""
+    template = db.query(ReviewTemplateModel).filter(ReviewTemplateModel.rating == rating).first()
+    
+    if not template:
+        return ApiResponse.error(message=f"Template untuk bintang {rating} belum dibuat. Gunakan method POST dulu.", code=404)
+        
+    template.template_text = template_text
+    db.commit()
+    
+    return ApiResponse.success(data={"rating": rating}, message="Template berhasil diperbarui.", code=200)
+
+@router.delete("/reviews/templates/{rating}", response_model=BaseResponse[dict])
+def delete_review_template(
+    rating: int,
+    db: Session = Depends(get_db_main),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Endpoint untuk menghapus template otomatis berdasarkan rating bintangnya"""
+    template = db.query(ReviewTemplateModel).filter(ReviewTemplateModel.rating == rating).first()
+
+    if not template:
+        return ApiResponse.error(message=f"Template untuk bintang {rating} tidak ditemukan.", code=404)
+
+    db.delete(template)
+    db.commit()
+
+    return ApiResponse.success(
+        data={"deleted_rating": rating},
+        message=f"Template untuk ulasan bintang {rating} berhasil dihapus.",
         code=200
     )
