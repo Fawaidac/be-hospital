@@ -1,7 +1,7 @@
 # app/routers/review.py
 from fastapi import APIRouter, Depends, status, Body, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, text
+from sqlalchemy import case, func, text
 from typing import List, Optional
 from datetime import datetime, timedelta
 import asyncio
@@ -92,6 +92,8 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
 
         is_success = await ReviewBotService.send_reply_to_google(payload.review_id, bot_reply)
         new_review.status = "replied" if is_success else "failed"
+        if is_success:
+            new_review.replied_at = func.now()
         db.commit()
 
         ActivityLogger.log(
@@ -129,6 +131,7 @@ async def reply_review_manually(
     if is_success:
         review.reply_text = reply_text
         review.status = "replied"
+        review.replied_at = func.now()
         db.commit()
         ActivityLogger.log(
             db=db, username=current_user.username, action="REVIEW_MANUAL_REPLY",
@@ -194,6 +197,7 @@ def get_all_reviews_for_dashboard(
                 status=r.status,
                 sentiment=r.sentiment,
                 created_at=r.created_at,
+                replied_at=r.replied_at,
                 keywords=[k.keyword for k in r.keywords_rel] 
             )
         )
@@ -222,31 +226,50 @@ async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: Use
             is_asking = ai_analysis["is_asking"]
             detected_sentiment = ai_analysis["sentiment"]
 
+            raw_create_time = rev.get("createTime")
+            review_created_at = datetime.now()
+            if raw_create_time:
+                try:
+                    review_created_at = datetime.fromisoformat(raw_create_time.replace("Z", "+00:00"))
+                except ValueError:
+                    review_created_at = datetime.now()
+
             has_replied = "reviewReply" in rev
+            review_replied_at = None
+
             if has_replied:
                 bot_reply = rev["reviewReply"].get("comment", "")
                 status_reply = "replied"
+                
+                raw_reply_time = rev["reviewReply"].get("updateTime")
+                if raw_reply_time:
+                    try:
+                        review_replied_at = datetime.fromisoformat(raw_reply_time.replace("Z", "+00:00"))
+                    except ValueError:
+                        review_replied_at = review_created_at 
+                else:
+                    review_replied_at = review_created_at
             else:
                 if rating in [1, 2] or is_asking:
                     bot_reply = None
                     status_reply = "pending"
+                    review_replied_at = None
                 else:
                     bot_reply = await ReviewBotService.generate_reply_template(rating, db)
                     success = await ReviewBotService.send_reply_to_google(review_id, bot_reply)
                     status_reply = "replied" if success else "failed"
-
-            raw_time = rev.get("createTime")
-            parsed_date = datetime.now()
-            if raw_time:
-                try:
-                    parsed_date = datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
-                except ValueError:
-                    parsed_date = datetime.now()
+                    review_replied_at = datetime.now() if success else None
 
             new_review = GoogleReviewModel(
-                review_id=review_id, reviewer_name=reviewer_name, rating=rating,
-                comment=comment, reply_text=bot_reply, status=status_reply,
-                sentiment=detected_sentiment, created_at=parsed_date
+                review_id=review_id,
+                reviewer_name=reviewer_name,
+                rating=rating,
+                comment=comment,
+                reply_text=bot_reply,
+                status=status_reply,
+                sentiment=detected_sentiment,
+                created_at=review_created_at, 
+                replied_at=review_replied_at 
             )
             db.add(new_review)
             db.commit()
@@ -256,7 +279,7 @@ async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: Use
             db.commit()
             
             count_saved += 1
-            await asyncio.sleep(4.0) # Defensif Anti-Rate Limit Gemini
+            await asyncio.sleep(4.0) 
 
     if count_saved > 0:
         ActivityLogger.log(
@@ -267,26 +290,99 @@ async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: Use
     return ApiResponse.success(data={"synchronized_count": count_saved}, message=f"Successfully synchronized {count_saved} reviews.", code=200)
 
 @router.get("/reviews/stats", response_model=BaseResponse[DashboardStatsResponse])
-def get_dashboard_statistics(db: Session = Depends(get_db_main), current_user: UserModel = Depends(get_current_user)):
-    stats_query = db.query(func.count(GoogleReviewModel.id).label("total"), func.avg(GoogleReviewModel.rating).label("average")).first()
-    total_reviews = stats_query.total or 0
-    rating_average = round(float(stats_query.average), 1) if stats_query.average else 0.0
+def get_dashboard_statistics(
+    db: Session = Depends(get_db_main),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Endpoint komplit untuk menyuplai data 3 kartu metrik utama beserta tren komparasi waktu"""
+    now = datetime.now()
+    thirty_days_ago = now - timedelta(days=30)
+    sixty_days_ago = now - timedelta(days=60)
 
+    stats = db.query(
+        func.count(GoogleReviewModel.id).label("total"),
+        func.avg(GoogleReviewModel.rating).label("average"),
+        func.sum(case((GoogleReviewModel.created_at >= thirty_days_ago, 1), else_=0)).label("total_this_month"),
+        func.sum(
+            case(
+                (
+                    (GoogleReviewModel.sentiment == "POSITIVE")
+                    & (GoogleReviewModel.created_at >= thirty_days_ago),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("positive_this_month"),
+        func.sum(
+            case(
+                (
+                    (GoogleReviewModel.created_at >= sixty_days_ago)
+                    & (GoogleReviewModel.created_at < thirty_days_ago),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("total_last_month"),
+        func.sum(
+            case(
+                (
+                    (GoogleReviewModel.sentiment == "POSITIVE")
+                    & (GoogleReviewModel.created_at >= sixty_days_ago)
+                    & (GoogleReviewModel.created_at < thirty_days_ago),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("positive_last_month"),
+        func.sum(case((GoogleReviewModel.status == "pending", 1), else_=0)).label("pending_count"),
+    ).first()
+
+    total_reviews = stats.total or 0
+    rating_average = round(float(stats.average), 1) if stats.average is not None else 0.0
     positive_vibes = 0.0
-    response_rate = 0.0
+    positive_trend = 0.0
+    avg_response_hours = 0.0
+    target_diff_minutes = 0
+    pending_count = stats.pending_count or 0
 
     if total_reviews > 0:
-        positive_count = db.query(func.count(GoogleReviewModel.id)).filter(GoogleReviewModel.sentiment == "POSITIVE").scalar() or 0
-        positive_vibes = round((positive_count / total_reviews) * 100, 1)
-        replied_count = db.query(func.count(GoogleReviewModel.id)).filter(GoogleReviewModel.status == "replied").scalar() or 0
-        response_rate = round((replied_count / total_reviews) * 100, 1)
+        total_this_month = stats.total_this_month or 0
+        positive_this_month = stats.positive_this_month or 0
+        total_last_month = stats.total_last_month or 0
+        positive_last_month = stats.positive_last_month or 0
+
+        this_month_ratio = float((positive_this_month / total_this_month) * 100) if total_this_month > 0 else 0.0
+        last_month_ratio = float((positive_last_month / total_last_month) * 100) if total_last_month > 0 else 0.0
+
+        positive_vibes = round(this_month_ratio, 1)
+        positive_trend = round(this_month_ratio - last_month_ratio, 1) 
+
+        avg_seconds = db.query(
+            func.avg(func.timestampdiff(text("SECOND"), GoogleReviewModel.created_at, GoogleReviewModel.replied_at))
+        ).filter(
+            GoogleReviewModel.status == "replied",
+            GoogleReviewModel.replied_at.isnot(None)
+        ).scalar()
+
+        if avg_seconds is not None:
+            actual_minutes = float(avg_seconds) / 60
+            avg_response_hours = round(actual_minutes / 60, 1)
+
+            target_minutes = 162
+            target_diff_minutes = int(round(actual_minutes - target_minutes))
 
     return ApiResponse.success(
         data=DashboardStatsResponse(
-            total_reviews=total_reviews, rating_average=rating_average,
-            positive_vibes_percentage=positive_vibes, response_rate_percentage=response_rate
+            total_reviews=total_reviews,
+            rating_average=rating_average,
+            positive_vibes_percentage=positive_vibes,
+            positive_vibes_trend_percentage=positive_trend,         # Dinamik untuk teks bawah Kotak 1
+            avg_response_hours=avg_response_hours,
+            response_target_difference_minutes=target_diff_minutes, # Dinamik untuk teks bawah Kotak 2 (-18m)
+            pending_count=pending_count
         ),
-        message="Calculated stats.", code=200
+        message="Successfully synchronized metadata card constraints.",
+        code=200
     )
 
 @router.get("/reviews/sentiment-analysis", response_model=BaseResponse[SentimentAnalysisResponse])

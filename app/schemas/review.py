@@ -21,6 +21,7 @@ class ReviewResponse(BaseModel):
     status: str
     sentiment: str 
     created_at: datetime
+    replied_at: Optional[datetime] = None
     keywords: List[str] = []
 
     model_config = {"from_attributes": True}
@@ -39,8 +40,14 @@ class UpdateTemplateRequest(BaseModel):
 class DashboardStatsResponse(BaseModel):
     total_reviews: int
     rating_average: float
+    
     positive_vibes_percentage: float
-    response_rate_percentage: float
+    positive_vibes_trend_percentage: float  
+
+    avg_response_hours: float
+    response_target_difference_minutes: int 
+
+    pending_count: int
 
 class SentimentDetail(BaseModel):
     count: int

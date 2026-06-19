@@ -17,6 +17,7 @@ class GoogleReviewModel(BaseMain):
     status = Column(String(50), default="pending")
     sentiment = Column(String(20), default="NEUTRAL")
     created_at = Column(DateTime, server_default=func.now())
+    replied_at = Column(DateTime, nullable=True)
 
     keywords_rel = relationship("ReviewKeywordModel", cascade="all, delete-orphan", lazy="joined")
 
