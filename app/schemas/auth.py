@@ -21,8 +21,8 @@ class UserData(BaseModel):
     name: str
     username: str
     email: str
-    role: str
-    pin: str
+    role: Optional[str] = None
+    pin: Optional[str] = None
     phone: Optional[str] = None
     alamat: Optional[str] = None
     created_at: datetime

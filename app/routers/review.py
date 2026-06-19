@@ -1,9 +1,9 @@
 # app/routers/review.py
-from fastapi import APIRouter, Depends, status, Body
+from fastapi import APIRouter, Depends, status, Body, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, text
-from typing import List
-from datetime import datetime
+from typing import List, Optional
+from datetime import datetime, timedelta
 import asyncio
 
 from app.core.database import get_db_main
@@ -146,13 +146,40 @@ async def reply_review_manually(
     
 @router.get("/reviews", response_model=BaseResponse[List[ReviewResponse]])
 def get_all_reviews_for_dashboard(
+    status: Optional[str] = Query(None, description="Filter berdasarkan status: 'pending' atau 'replied'"),
+    time_range: Optional[str] = Query(None, description="Filter waktu: '7_days', '30_days', atau 'all_time'"),
+    rating: Optional[int] = Query(None, description="Filter rating bintang: 1 sampai 5", ge=1, le=5),
+    sentiment: Optional[str] = Query(None, description="Filter sentimen: 'POSITIVE', 'NEUTRAL', atau 'NEGATIVE'"),
+    limit: Optional[int] = Query(None, description="Membatasi jumlah data ulasan yang ditarik", ge=1),
     db: Session = Depends(get_db_main), 
     current_user: UserModel = Depends(get_current_user)
 ):
-    reviews_db = db.query(GoogleReviewModel)\
-        .options(joinedload(GoogleReviewModel.keywords_rel))\
-        .order_by(GoogleReviewModel.created_at.desc())\
-        .all()
+    query = db.query(GoogleReviewModel).options(joinedload(GoogleReviewModel.keywords_rel))
+
+    if status:
+        query = query.filter(GoogleReviewModel.status == status.lower())
+
+    if rating:
+        query = query.filter(GoogleReviewModel.rating == rating)
+
+    if sentiment:
+        query = query.filter(GoogleReviewModel.sentiment == sentiment.upper())
+
+    if time_range:
+        now = datetime.now()
+        if time_range == "7_days":
+            start_date = now - timedelta(days=7)
+            query = query.filter(GoogleReviewModel.created_at >= start_date)
+        elif time_range == "30_days":
+            start_date = now - timedelta(days=30)
+            query = query.filter(GoogleReviewModel.created_at >= start_date)
+
+    query = query.order_by(GoogleReviewModel.created_at.desc())
+    
+    if limit:
+        query = query.limit(limit)
+
+    reviews_db = query.all()
 
     formatted_reviews = []
     for r in reviews_db:
@@ -173,7 +200,7 @@ def get_all_reviews_for_dashboard(
 
     return ApiResponse.success(
         data=formatted_reviews, 
-        message="The review data along with trends has been successfully retrieved.", 
+        message="The review data has been successfully filtered and retrieved.", 
         code=200
     )
 
