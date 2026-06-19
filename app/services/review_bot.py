@@ -136,48 +136,139 @@ class ReviewBotService:
             except Exception as e:
                 logger.error(f"Error koneksi saat ambil review: {str(e)}")
                 return []
-
+    
     @staticmethod
-    async def is_customer_asking(comment_text: str) -> bool:
-        """Menggunakan Gemini AI untuk mendeteksi apakah komentar mengandung unsur pertanyaan/butuh info"""
+    async def analyze_review_intent_and_sentiment(comment_text: str, rating_int: int = 3) -> dict:
+        """
+        Menggunakan Gemini AI untuk menganalisis Intent, Sentiment, dan Keywords sekaligus.
+        Dilengkapi fallback SENTIMEN dan KEYWORDS menggunakan Kamus Lokal jika Gemini down.
+        """
+        fallback_sentiment = "NEUTRAL"
+        if rating_int in [4, 5]:
+            fallback_sentiment = "POSITIVE"
+        elif rating_int in [1, 2]:
+            fallback_sentiment = "NEGATIVE"
+
+        fallback_keywords = []
+        if comment_text:
+            text_lower = comment_text.lower()
+            
+            kamus_lokal = {
+                "ramah": "#friendly", "baik": "#friendly", "sopan": "#friendly", "senyum": "#friendly", 
+                "telaten": "#friendly", "sabar": "#friendly", "humble": "#friendly", "care": "#friendly",
+                "penjelasan detail": "#friendly", "komunikatif": "#friendly",
+
+                "lama": "#slow_response", "antri": "#slow_response", "lelet": "#slow_response", 
+                "lambat": "#slow_response", "ngaret": "#slow_response", "molor": "#slow_response", 
+                "jam karet": "#slow_response", "suwe": "#slow_response", "mbulet": "#slow_response",
+                "nunggu": "#slow_response", "berjam-jam": "#slow_response", "tertunda": "#slow_response",
+
+                "bersih": "#clean", "wangi": "#clean", "rapi": "#clean", "resik": "#clean", 
+                "mengkilap": "#clean", "steril": "#clean", "bebas sampah": "#clean",
+
+                "nyaman": "#cozy", "adem": "#cozy", "tenang": "#cozy", "sejuk": "#cozy", 
+                "ac dingin": "#cozy", "betah": "#cozy", "relax": "#cozy",
+
+                "cepat": "#gercep", "cepet": "#gercep", "kilat": "#gercep", "gercep": "#gercep", 
+                "satset": "#gercep", "gatelen": "#gercep", "sebentar": "#gercep", "langsung ditangani": "#gercep",
+                "responsif": "#gercep", "sigap": "#gercep", "tangkas": "#gercep",
+
+                "jutek": "#unfriendly", "marah": "#unfriendly", "kasar": "#unfriendly", 
+                "bentak": "#unfriendly", "cuek": "#unfriendly", "mrengut": "#unfriendly", 
+                "ndak sopan": "#unfriendly", "acuh": "#unfriendly", "tidak ramah": "#unfriendly",
+                "sombong": "#unfriendly", "Nilep": "#unfriendly",
+
+                "penuh": "#crowded", "sesak": "#crowded", "antrean": "#crowded", "jubel": "#crowded", 
+                "uyel": "#crowded", "padat": "#crowded", "bludak": "#crowded", "kehabisan kursi": "#crowded",
+                "rebutan": "#crowded", "umpel-umpelan": "#crowded",
+
+                "bagus": "#aesthetic", "indah": "#aesthetic", "modern": "#aesthetic", 
+                "bagus bangunannya": "#aesthetic", "keren": "#aesthetic", "mewah": "#aesthetic", 
+                "estetik": "#aesthetic", "apik": "#aesthetic",
+
+                "kumuh": "#hygiene", "kotor": "#hygiene", "bau": "#hygiene", "banger": "#hygiene", 
+                "pesing": "#hygiene", "jijik": "#hygiene", "banyak lalat": "#hygiene", 
+                "wc mampet": "#hygiene", "jorok": "#hygiene", "larat": "#hygiene",
+
+                "bpjs lancar": "#fast_service", "rujukan gampang": "#fast_service", "online mudah": "#fast_service",
+                "tidak ribet": "#fast_service", "pendaftaran cepat": "#fast_service", "admisi kilat": "#fast_service",
+
+                "panas": "#hot_vibe", "sumuk": "#hot_vibe", "ac mati": "#hot_vibe", 
+                "kipas angin rusak": "#hot_vibe", "pengap": "#hot_vibe", "gerah": "#hot_vibe",
+
+                "ribet": "#L_Vibe", "mbulet admulasinya": "#L_Vibe", "dilempar-lempar": "#L_Vibe", 
+                "rujukan dipersulit": "#L_Vibe", "sistem error": "#L_Vibe", "antrean online mati": "#L_Vibe",
+                "kecewa": "#L_Vibe", "parah": "#L_Vibe", "buruk": "#L_Vibe", "pelayanan jelek": "#L_Vibe"
+            }   
+            
+            for kata_kunci, hashtag in kamus_lokal.items():
+                if kata_kunci in text_lower:
+                    if hashtag not in fallback_keywords:
+                        fallback_keywords.append(hashtag)
+                if len(fallback_keywords) >= 3:
+                    break
+
+        default_result = {
+            "is_asking": False, 
+            "sentiment": fallback_sentiment, 
+            "keywords": fallback_keywords
+        }
+        
         if not comment_text or len(comment_text.strip()) < 3:
-            return False
+            return default_result
 
         if not hasattr(settings, "GEMINI_API_KEY") or not settings.GEMINI_API_KEY:
-            logger.warning("Gemini API Key belum dikonfigurasi. Menggunakan fallback.")
-            return False
+            logger.warning("Gemini API Key belum dikonfigurasi. Menggunakan fallback lokal.")
+            return default_result
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
         
         prompt = (
-            "Analisis teks ulasan pasien Rumah Sakit berikut. "
-            "Tentukan apakah teks tersebut mengandung unsur PERTANYAAN, permintaan informasi, "
-            "atau kebingungan yang membutuhkan jawaban edukatif (Meskipun ditulis singkat, typo, atau bahasa daerah).\n\n"
+            "Analisis teks ulasan pasien Rumah Sakit dr. Soebandi berikut.\n\n"
             f"Teks Pasien: \"{comment_text}\"\n\n"
-            "Aturan respon: Jawab hanya dengan satu kata: PERTANYAAN jika itu pertanyaan/butuh info, "
-            "atau REVIEW jika itu murni ulasan/pujian/makian biasa tanpa pertanyaan. Jangan beri tanda baca atau alasan."
+            "Tugas Anda:\n"
+            "1. Tentukan INTENT: Apakah mengandung unsur PERTANYAAN, permintaan info, atau kebingungan? (Jawab TRUE atau FALSE).\n"
+            "2. Tentukan SENTIMEN: POSITIVE (pujian), NEGATIVE (keluhan/sarkas), atau NEUTRAL (biasa).\n"
+            "3. Ekstrak KEYWORD/HASHTAG tren (Maksimal 3, gunakan gaya ular huruf kecil sejenis #slow_response, #clean, #friendly, #gercep, #unfriendly).\n\n"
+            "Aturan Respon: Anda WAJIB membalas HANYA dengan format teks string pendek tanpa alasan tambahan: "
+            "INTENT=TRUE;SENTIMEN=NEGATIVE;KEYWORDS=#slow_response,#unfriendly"
         )
 
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": 0.0, 
-                "maxOutputTokens": 5
+                "maxOutputTokens": 100
             }
         }
 
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.post(url, json=payload, timeout=5.0)
-                if response.status_code == 200:
-                    res_json = response.json()
-                    ai_reply = res_json['candidates'][0]['content']['parts'][0]['text'].strip().upper()
-                    
-                    logger.info(f"Analisis AI untuk '{comment_text}': {ai_reply}")
-                    return "PERTANYAAN" in ai_reply
                 
-                logger.error(f"Gemini API bermasalah (Status {response.status_code}): {response.text}")
-                return False
+                if response.status_code != 200:
+                    logger.warning(f"⚠️ Gemini API bermasalah (Status {response.status_code}). Mengaktifkan pertahanan fallback (Kamus Lokal).")
+                    return default_result
+                    
+                res_json = response.json()
+                ai_reply = res_json['candidates'][0]['content']['parts'][0]['text'].strip().upper()
+                logger.info(f"Analisis Komplit AI untuk '{comment_text[:30]}...': {ai_reply}")
+                
+                parsed = {}
+                for item in ai_reply.split(";"):
+                    if "=" in item:
+                        k, v = item.split("=")
+                        parsed[k.strip()] = v.strip()
+                
+                keywords_str = parsed.get("KEYWORDS", "")
+                keywords_list = [kw.strip().lower() for kw in keywords_str.split(",") if kw.strip()]
+                
+                return {
+                    "is_asking": parsed.get("INTENT") == "TRUE",
+                    "sentiment": parsed.get("SENTIMEN", default_result["sentiment"]),
+                    "keywords": keywords_list if keywords_list else default_result["keywords"]
+                }
+                
             except Exception as e:
-                logger.error(f"Gagal koneksi ke Gemini API: {str(e)}")
-                return False
+                logger.error(f"❌ Gagal koneksi ke Gemini API: {str(e)}. Mengaktifkan pertahanan fallback (Kamus Lokal).")
+                return default_result

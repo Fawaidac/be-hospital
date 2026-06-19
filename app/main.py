@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse 
 from fastapi.exceptions import RequestValidationError
 from fastapi.templating import Jinja2Templates 
+from fastapi.middleware.cors import CORSMiddleware 
 from dotenv import load_dotenv
 
 from app.core.database import BaseMain, BasePSC, engine_main, engine_psc
@@ -32,6 +33,20 @@ else:
         description="Backend terpadu untuk sistem Google Review Bot, Manajemen Komplain (PSC), Laporan Pendapatan (Revenue)."
     )
 
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "*", 
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+)
+
 templates = Jinja2Templates(directory="templates")
 
 replied_reviews_cache: set = set()
@@ -44,7 +59,6 @@ async def startup_event():
 
 @app.get("/privacy-policy", response_class=HTMLResponse, include_in_schema=False)
 async def get_privacy_policy(request: Request):
-    # Format modern & aman yang didukung penuh oleh FastAPI versi baru maupun kontainer Docker
     return templates.TemplateResponse(request=request, name="privacy-policy.html")
 
 
