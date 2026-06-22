@@ -10,7 +10,7 @@ from app.schemas.base import BaseResponse, ApiResponse
 from app.schemas.users import UserResponse, GlobalCreateUserRequest, GlobalUpdateUserRequest
 from app.services.logger_service import ActivityLogger
 
-router = APIRouter(prefix="/api/global/users", tags=["Global User Management"])
+router = APIRouter(prefix="/api/manage/users", tags=["Global User Management"])
 
 @router.post("", response_model=BaseResponse[UserResponse], status_code=201)
 def global_create_user(
