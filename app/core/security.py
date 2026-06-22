@@ -3,7 +3,7 @@ import hashlib
 import jwt
 import re
 from datetime import datetime, timedelta, timezone
-from fastapi import Depends, status, Request
+from fastapi import Depends, status, Request, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -116,4 +116,13 @@ def super_admin_only(current_user: UserModel = Depends(get_current_user)) -> Use
             status_code=status.HTTP_403_FORBIDDEN
         )
         
+    return current_user
+
+def global_admin_only(current_user: UserModel = Depends(get_current_user)):
+    """Mengecek apakah user yang login memiliki kasta tertinggi (app_access == 0)"""
+    if current_user.app_access != 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Akses Ditolak! Endpoint ini khusus untuk Owner / System Administrator Utama."
+        )
     return current_user

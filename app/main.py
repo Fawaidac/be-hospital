@@ -11,7 +11,7 @@ from app.core.database import BaseMain, BasePSC, engine_main, engine_psc
 from app.core.security import AuthException
 from app.schemas.base import ApiResponse
 from app.services.review_service import google_review_bot_worker
-from app.routers import komplain, log, revenue, review, auth
+from app.routers import komplain, log, revenue, review, auth, users
 
 load_dotenv()
 
@@ -85,3 +85,4 @@ app.include_router(review.router)
 app.include_router(komplain.router)
 app.include_router(revenue.router)
 app.include_router(log.router)
+app.include_router(users.router)
