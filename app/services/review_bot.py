@@ -72,7 +72,9 @@ class ReviewBotService:
                 response = await client.post(url, data=payload)
                 if response.status_code == 200:
                     return response.json().get("access_token", "")
-                logger.error(f"Gagal refresh token Google: {response.text}")
+                err_msg = f"OAuth2 Error: {response.text.strip()}"
+                logger.error(f"Gagal refresh token Google: {err_msg}")
+                ReviewBotService.write_bot_log("ERROR", f"Gagal refresh token Google Maps API. Detail: {err_msg}")
                 return ""
             except Exception as e:
                 logger.error(f"Error koneksi saat refresh token: {str(e)}")
@@ -272,3 +274,24 @@ class ReviewBotService:
             except Exception as e:
                 logger.error(f"❌ Gagal koneksi ke Gemini API: {str(e)}. Mengaktifkan pertahanan fallback (Kamus Lokal).")
                 return default_result
+            
+    @staticmethod
+    def write_bot_log(level: str, message: str):
+        """Mencatat aktivitas operasional bot ke dalam file text lokal log"""
+        import os
+        from datetime import datetime
+        
+        log_dir = "logs"
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+            
+        log_file_path = os.path.join(log_dir, "review_bot_activity.txt")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        log_line = f"[{timestamp}] [{level.upper()}] {message}\n"
+        
+        try:
+            with open(log_file_path, "a", encoding="utf-8") as file:
+                file.write(log_line)
+        except Exception as e:
+            logger.error(f"Gagal menulis ke file log lokal: {str(e)}")

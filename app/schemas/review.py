@@ -64,3 +64,14 @@ class SentimentAnalysisResponse(BaseModel):
     neutral: SentimentDetail     
     negative: SentimentDetail    
     top_keywords: List[KeywordTrendDetail] 
+
+class BotStatusResponse(BaseModel):
+    bot_status: str          
+    last_checked_at: str     
+    error_message: Optional[str] = None  
+    total_auto_replied: int 
+
+class BotLogLineResponse(BaseModel):
+    timestamp: str
+    level: str
+    message: str

@@ -5,13 +5,14 @@ from sqlalchemy import case, func, text
 from typing import List, Optional
 from datetime import datetime, timedelta
 import asyncio
+import os
 
 from app.core.database import get_db_main
 from app.core.security import get_current_user
 from app.models.review import GoogleReviewModel, ReviewKeywordModel
 from app.models.user import UserModel
 from app.schemas.review import (
-    DashboardStatsResponse, GoogleReviewWebhook, ReviewResponse, 
+    BotLogLineResponse, BotStatusResponse, DashboardStatsResponse, GoogleReviewWebhook, ReviewResponse, 
     WebhookData, UpdateTemplateRequest, SentimentAnalysisResponse, SentimentDetail, KeywordTrendDetail
 )
 from app.schemas.base import BaseResponse, ApiResponse
@@ -550,3 +551,84 @@ def delete_review_template(
         message=f"Template untuk ulasan bintang {rating} berhasil dihapus.",
         code=200
     )
+
+
+
+@router.get("/reviews/bot/status", response_model=BaseResponse[BotStatusResponse])
+def get_google_bot_operational_status(db: Session = Depends(get_db_main), current_user: UserModel = Depends(get_current_user)):
+    """Mengecek apakah status bot aktif atau mendadak error akibat token mati"""
+    log_file_path = "logs/review_bot_activity.txt"
+    bot_status = "ACTIVE"
+    last_error = None
+    
+    # 1. Analisis status dari baris error terakhir di file teks
+    if os.path.exists(log_file_path):
+        try:
+            with open(log_file_path, "r", encoding="utf-8") as file:
+                lines = file.readlines()
+                # Ambil 20 baris terakhir untuk mencari tanda bahaya ERROR
+                for line in reversed(lines[-20:]):
+                    if "[ERROR]" in line:
+                        bot_status = "ERROR"
+                        last_error = line.split("] [ERROR] ")[-1].strip()
+                        break
+        except Exception as e:
+            bot_status = "ERROR"
+            last_error = f"Gagal membaca file sistem log: {str(e)}"
+            
+    # 2. Hitung jumlah akumulasi ulasan yang sukses ditangani otomatis oleh bot
+    total_auto = db.query(func.count(GoogleReviewModel.id))\
+                   .filter(GoogleReviewModel.status == "replied", GoogleReviewModel.reply_text.isnot(None))\
+                   .scalar() or 0
+
+    data_payload = BotStatusResponse(
+        bot_status=bot_status,
+        last_checked_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        error_message=last_error,
+        total_auto_replied=total_auto
+    )
+    return ApiResponse.success(data=data_payload, message="Bot pulse status compiled successfully.", code=200)
+
+
+@router.get("/reviews/bot/logs", response_model=BaseResponse[List[BotLogLineResponse]])
+def get_google_bot_file_logs(
+    limit: int = Query(50, description="Jumlah baris log terbaru yang ingin ditarik"),
+    db: Session = Depends(get_db_main), 
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Membaca file teks lokal dan mereturn baris log terstruktur ke komponen Frontend"""
+    log_file_path = "logs/review_bot_activity.txt"
+    parsed_logs = []
+    
+    if not os.path.exists(log_file_path):
+        return ApiResponse.success(data=[], message="Log file is currently clean and empty.", code=200)
+        
+    try:
+        with open(log_file_path, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+            
+            # Balik barisnya agar urutan log paling baru muncul di atas
+            for line in reversed(lines):
+                if line.strip() and line.startswith("["):
+                    # Parsing string kaku "[TIMESTAMP] [LEVEL] MESSAGE"
+                    try:
+                        parts = line.split("] ")
+                        timestamp = parts[0].replace("[", "")
+                        level = parts[1].replace("[", "")
+                        message = " ".join(parts[2:]).strip()
+                        
+                        parsed_logs.append(
+                            BotLogLineResponse(timestamp=timestamp, level=level, message=message)
+                        )
+                    except Exception:
+                        # Jika ada baris format rusak, masukkan mentah sebagai info umum
+                        parsed_logs.append(
+                            BotLogLineResponse(timestamp="-", level="INFO", message=line.strip())
+                        )
+                        
+                if len(parsed_logs) >= limit:
+                    break
+    except Exception as e:
+        return ApiResponse.error(message=f"Gagal menarik data log internal: {str(e)}", code=500)
+
+    return ApiResponse.success(data=parsed_logs, message="Successfully extracted raw stream text logs.", code=200)

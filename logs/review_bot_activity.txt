@@ -1,0 +1,12 @@
+[2026-06-22 08:18:29] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-22 08:19:22] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-22 08:19:24] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
