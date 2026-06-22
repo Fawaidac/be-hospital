@@ -16,5 +16,6 @@ class UserModel(BaseMain):
     alamat = Column(Text, nullable=True)
     role = Column(String(50), nullable=False)
     pin = Column(String(225), nullable=True)
+    app_access = Column(Integer, default=1, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status
+# app/routers/auth.py
+from fastapi import APIRouter, Depends, status, Body
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db_main
@@ -26,7 +27,7 @@ router = APIRouter(prefix="/api", tags=["Auth"])
 )
 async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
     """
-    Endpoint untuk autentikasi user.
+    Endpoint untuk autentikasi user dengan penentuan hak akses aplikasi.
     """
     user = db.query(UserModel).filter(UserModel.username == payload.username).first()
 
@@ -53,7 +54,9 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
             description=f"User '{user.username}' password hash was automatically upgraded from SHA-256 to Argon2."
         )
 
-    access_token = create_access_token(data={"sub": user.username})
+    # Menyisipkan klaim sub dan app_access ke dalam enkripsi JWT token
+    access_token = create_access_token(data={"sub": user.username, "app_access": user.app_access})
+    
     ActivityLogger.log(
         db=db,
         username=user.username,
@@ -61,8 +64,12 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
         description=f"User '{user.username}' logged in successfully."
     )
 
+    # 🔥 PERBAIKAN: Melempar data sesuai dengan schema LoginData (token & app_access)
     return ApiResponse.success(
-        data={"token": access_token},
+        data=LoginData(
+            token=access_token,
+            app_access=user.app_access
+        ),
         message="Login successful.",
         code=status.HTTP_200_OK
     )
@@ -75,8 +82,9 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
 )
 def get_me(current_user: UserModel = Depends(get_current_user)):
     """
-    Endpoint untuk mengambil profil user yang sedang login.
+    Endpoint untuk mengambil profil user yang sedang login beserta konfigurasi app_access.
     """
+    # Pydantic otomatis memetakan kolom app_access dari model user ke schema UserData
     user_data = UserData.model_validate(current_user)
 
     return ApiResponse.success(

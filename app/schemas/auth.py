@@ -13,6 +13,7 @@ class LoginRequest(BaseModel):
 class LoginData(BaseModel):
     """Schema data untuk output token setelah login sukses."""
     token: str
+    app_access: int
 
 
 class UserData(BaseModel):
@@ -25,8 +26,10 @@ class UserData(BaseModel):
     pin: Optional[str] = None
     phone: Optional[str] = None
     alamat: Optional[str] = None
+    app_access: int
     created_at: datetime
     updated_at: datetime
+    
 
     model_config = {"from_attributes": True}
 
