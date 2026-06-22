@@ -72,14 +72,17 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
     
     else:
         bot_reply = await ReviewBotService.generate_reply_template(payload.rating, db)
+        is_success = await ReviewBotService.send_reply_to_google(payload.review_id, bot_reply)
+
         new_review = GoogleReviewModel(
             review_id=payload.review_id,
             reviewer_name=payload.reviewer_name,
             rating=payload.rating,
             comment=payload.comment,
-            reply_text=bot_reply,
-            status="pending",
-            sentiment=detected_sentiment
+            reply_text=bot_reply if is_success else None,
+            status="replied" if is_success else "pending",
+            sentiment=detected_sentiment,
+            replied_at=func.now() if is_success else None
         )
 
         db.add(new_review)
@@ -90,16 +93,14 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
             db.add(ReviewKeywordModel(review_id=payload.review_id, keyword=kw))
         db.commit()
 
-        is_success = await ReviewBotService.send_reply_to_google(payload.review_id, bot_reply)
-        new_review.status = "replied" if is_success else "failed"
-        if is_success:
-            new_review.replied_at = func.now()
-        db.commit()
-
         ActivityLogger.log(
             db=db,
-            action="REVIEW_AUTO_REPLY" if is_success else "REVIEW_AUTO_REPLY_FAILED",
-            description=f"Bot {'replied to' if is_success else 'failed to reply to'} review '{new_review.review_id}' with rating {new_review.rating}."
+            action="REVIEW_AUTO_REPLY" if is_success else "REVIEW_AUTO_REPLY_QUEUED",
+            description=(
+                f"Bot replied to review '{new_review.review_id}' with rating {new_review.rating}."
+                if is_success
+                else f"Bot failed to reply to review '{new_review.review_id}'. Review was queued for manual reply."
+            )
         )
 
         return ApiResponse.success(
@@ -108,9 +109,13 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
                 reviewer_name=new_review.reviewer_name,
                 rating=new_review.rating,
                 bot_status=new_review.status,
-                reply_text=bot_reply,
+                reply_text=bot_reply if is_success else "",
             ),
-            message="The review has been saved and replied to by the bot.",
+            message=(
+                "The review has been saved and replied to by the bot."
+                if is_success
+                else "Auto-reply failed. The review has been saved to the manual queue."
+            ),
             code=201
         )
 
@@ -139,11 +144,11 @@ async def reply_review_manually(
         )
         return ApiResponse.success(data={"review_id": review_id, "status": "replied"}, message="Balasan manual Anda berhasil dikirim!", code=200)
     else:
-        review.status = "failed"
+        review.status = "pending"
         db.commit()
         ActivityLogger.log(
             db=db, username=current_user.username, action="REVIEW_MANUAL_REPLY_FAILED",
-            description=f"User '{current_user.username}' failed manual reply for '{review_id}'."
+            description=f"User '{current_user.username}' failed manual reply for '{review_id}'. Review remains pending."
         )
         return ApiResponse.error(message="Gagal mengirimkan balasan ke Google API.", code=500)
     
@@ -257,7 +262,8 @@ async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: Use
                 else:
                     bot_reply = await ReviewBotService.generate_reply_template(rating, db)
                     success = await ReviewBotService.send_reply_to_google(review_id, bot_reply)
-                    status_reply = "replied" if success else "failed"
+                    status_reply = "replied" if success else "pending"
+                    bot_reply = bot_reply if success else None
                     review_replied_at = datetime.now() if success else None
 
             new_review = GoogleReviewModel(
