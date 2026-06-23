@@ -107,10 +107,9 @@ async def get_current_user(
 
 def super_admin_only(current_user: UserModel = Depends(get_current_user)) -> UserModel:
     """
-    Middleware Dependency untuk membatasi hak akses hanya untuk role superadmin.
-    Meniru cara kerja middleware SuperAdminOnly di Laravel.
+    Middleware Dependency untuk membatasi hak akses hanya untuk role superadmin dan pde.
     """
-    if current_user.role != "superadmin":
+    if current_user.role not in ["superadmin", "pde"]:
         raise AuthException(
             message="Forbidden, Super Admin Only", 
             status_code=status.HTTP_403_FORBIDDEN
