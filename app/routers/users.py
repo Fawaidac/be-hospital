@@ -25,7 +25,7 @@ def global_create_user(
     if db.query(UserModel).filter(UserModel.email == payload.email).first():
         return ApiResponse.error(message="Email sudah terdaftar.", code=400)
 
-    new_user = UserModel(
+    new_user = UserModel( 
         name=payload.name,
         username=payload.username,
         email=payload.email,
@@ -40,7 +40,7 @@ def global_create_user(
     db.refresh(new_user)
 
     ActivityLogger.log(
-        db=db, username=admin.username, action="GLOBAL_USER_CREATE",
+        username=admin.username, action="GLOBAL_USER_CREATE",
         description=f"Global Admin '{admin.username}' mendaftarkan user '{new_user.username}' ke app_access {new_user.app_access}."
     )
     return ApiResponse.success(data=UserResponse.model_validate(new_user), message="User berhasil dibuat.", code=201)
@@ -79,7 +79,7 @@ def global_update_user(
     db.refresh(target_user)
 
     ActivityLogger.log(
-        db=db, username=admin.username, action="GLOBAL_USER_UPDATE",
+        username=admin.username, action="GLOBAL_USER_UPDATE",
         description=f"Global Admin '{admin.username}' memperbarui data/akses user ID {user_id}."
     )
     return ApiResponse.success(data=UserResponse.model_validate(target_user), message="Data user berhasil diperbarui.", code=200)
@@ -102,7 +102,7 @@ def global_delete_user(
     db.commit()
 
     ActivityLogger.log(
-        db=db, username=admin.username, action="GLOBAL_USER_DELETE",
+        username=admin.username, action="GLOBAL_USER_DELETE",
         description=f"Global Admin '{admin.username}' MENGHAPUS PERMANEN akun '{username_deleted}'."
     )
     return ApiResponse.success(data={"deleted_id": user_id}, message=f"Akun {username_deleted} berhasil dihapus permanen.", code=200)

@@ -53,7 +53,6 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
         db.commit()
 
         ActivityLogger.log(
-            db=db,
             action="REVIEW_MANUAL_QUEUE",
             description=f"Review '{new_review.review_id}' from '{new_review.reviewer_name}' was added to the manual queue."
         )
@@ -95,7 +94,6 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
         db.commit()
 
         ActivityLogger.log(
-            db=db,
             action="REVIEW_AUTO_REPLY" if is_success else "REVIEW_AUTO_REPLY_QUEUED",
             description=(
                 f"Bot replied to review '{new_review.review_id}' with rating {new_review.rating}."
@@ -140,7 +138,7 @@ async def reply_review_manually(
         review.replied_at = func.now()
         db.commit()
         ActivityLogger.log(
-            db=db, username=current_user.username, action="REVIEW_MANUAL_REPLY",
+            username=current_user.username, action="REVIEW_MANUAL_REPLY",
             description=f"User '{current_user.username}' manually replied to review '{review_id}'."
         )
         return ApiResponse.success(data={"review_id": review_id, "status": "replied"}, message="Balasan manual Anda berhasil dikirim!", code=200)
@@ -148,7 +146,7 @@ async def reply_review_manually(
         review.status = "pending"
         db.commit()
         ActivityLogger.log(
-            db=db, username=current_user.username, action="REVIEW_MANUAL_REPLY_FAILED",
+            username=current_user.username, action="REVIEW_MANUAL_REPLY_FAILED",
             description=f"User '{current_user.username}' failed manual reply for '{review_id}'. Review remains pending."
         )
         return ApiResponse.error(message="Gagal mengirimkan balasan ke Google API.", code=500)
@@ -290,7 +288,7 @@ async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: Use
 
     if count_saved > 0:
         ActivityLogger.log(
-            db=db, username=current_user.username, action="REVIEW_SYNC",
+            username=current_user.username, action="REVIEW_SYNC",
             description=f"User '{current_user.username}' synchronized {count_saved} old reviews."
         )
 
@@ -469,7 +467,6 @@ def create_review_template(
     db.add(new_template)
     db.commit()
     ActivityLogger.log(
-        db=db,
         username=current_user.username,
         action="REVIEW_TEMPLATE_CREATE",
         description=f"User '{current_user.username}' created an auto-reply template for {payload.rating}-star reviews."
@@ -517,7 +514,6 @@ def update_review_template(
     template.template_text = template_text
     db.commit()
     ActivityLogger.log(
-        db=db,
         username=current_user.username,
         action="REVIEW_TEMPLATE_UPDATE",
         description=f"User '{current_user.username}' updated the auto-reply template for {rating}-star reviews."
@@ -540,7 +536,6 @@ def delete_review_template(
     db.delete(template)
     db.commit()
     ActivityLogger.log(
-        db=db,
         username=current_user.username,
         action="REVIEW_TEMPLATE_DELETE",
         description=f"User '{current_user.username}' deleted the auto-reply template for {rating}-star reviews."
@@ -561,12 +556,10 @@ def get_google_bot_operational_status(db: Session = Depends(get_db_main), curren
     bot_status = "ACTIVE"
     last_error = None
     
-    # 1. Analisis status dari baris error terakhir di file teks
     if os.path.exists(log_file_path):
         try:
             with open(log_file_path, "r", encoding="utf-8") as file:
                 lines = file.readlines()
-                # Ambil 20 baris terakhir untuk mencari tanda bahaya ERROR
                 for line in reversed(lines[-20:]):
                     if "[ERROR]" in line:
                         bot_status = "ERROR"
@@ -576,7 +569,6 @@ def get_google_bot_operational_status(db: Session = Depends(get_db_main), curren
             bot_status = "ERROR"
             last_error = f"Gagal membaca file sistem log: {str(e)}"
             
-    # 2. Hitung jumlah akumulasi ulasan yang sukses ditangani otomatis oleh bot
     total_auto = db.query(func.count(GoogleReviewModel.id))\
                    .filter(GoogleReviewModel.status == "replied", GoogleReviewModel.reply_text.isnot(None))\
                    .scalar() or 0
@@ -607,10 +599,8 @@ def get_google_bot_file_logs(
         with open(log_file_path, "r", encoding="utf-8") as file:
             lines = file.readlines()
             
-            # Balik barisnya agar urutan log paling baru muncul di atas
             for line in reversed(lines):
                 if line.strip() and line.startswith("["):
-                    # Parsing string kaku "[TIMESTAMP] [LEVEL] MESSAGE"
                     try:
                         parts = line.split("] ")
                         timestamp = parts[0].replace("[", "")
@@ -621,7 +611,6 @@ def get_google_bot_file_logs(
                             BotLogLineResponse(timestamp=timestamp, level=level, message=message)
                         )
                     except Exception:
-                        # Jika ada baris format rusak, masukkan mentah sebagai info umum
                         parsed_logs.append(
                             BotLogLineResponse(timestamp="-", level="INFO", message=line.strip())
                         )

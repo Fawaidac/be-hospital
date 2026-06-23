@@ -36,7 +36,6 @@ def save_review_to_db_sync(
         })
         db.commit()
         ActivityLogger.log(
-            db=db,
             action="REVIEW_BOT_REPLY",
             description=f"Bot automatically replied to review '{review_id}' with rating {ReviewBotService.parse_rating(rating)}."
         )

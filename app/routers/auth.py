@@ -33,7 +33,6 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
 
     if not user or not verify_password(payload.password, user.password):
         ActivityLogger.log(
-            db=db,
             username=payload.username,
             action="LOGIN_FAILED",
             description=f"Failed login attempt for username '{payload.username}'."
@@ -48,7 +47,6 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
         user.password = hash_password(payload.password)
         db.commit()
         ActivityLogger.log(
-            db=db,
             username=user.username,
             action="PASSWORD_HASH_UPGRADED",
             description=f"User '{user.username}' password hash was automatically upgraded from SHA-256 to Argon2."
@@ -58,7 +56,6 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
     access_token = create_access_token(data={"sub": user.username, "app_access": user.app_access})
     
     ActivityLogger.log(
-        db=db,
         username=user.username,
         action="LOGIN_SUCCESS",
         description=f"User '{user.username}' logged in successfully."
@@ -113,7 +110,6 @@ async def check_pin(
     if not is_valid:
         code = status.HTTP_400_BAD_REQUEST if "does not have a PIN" in error_message else status.HTTP_403_FORBIDDEN
         ActivityLogger.log(
-            db=db,
             username=current_user.username,
             action="PIN_CHECK_FAILED",
             description=f"User '{current_user.username}' failed PIN verification."
@@ -122,14 +118,12 @@ async def check_pin(
 
     if pin_was_upgraded:
         ActivityLogger.log(
-            db=db,
             username=current_user.username,
             action="PIN_HASH_UPGRADED",
             description=f"User '{current_user.username}' PIN hash was automatically upgraded from SHA-256 to Argon2."
         )
 
     ActivityLogger.log(
-        db=db,
         username=current_user.username,
         action="PIN_CHECK_SUCCESS",
         description=f"User '{current_user.username}' verified their PIN successfully."

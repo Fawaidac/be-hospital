@@ -35,7 +35,6 @@ def store(
     try:
         res = RevenueService.store_or_update(db, payload.dict())
         ActivityLogger.log(
-            db=db,
             username=current_user.username,
             action="REVENUE_SAVE",
             description=f"User '{current_user.username}' saved target and realization data for year {payload.tahun}."
@@ -81,7 +80,6 @@ def destroy(
     try:
         RevenueService.delete_by_year(db, tahun)
         ActivityLogger.log(
-            db=db,
             username=current_user.username,
             action="REVENUE_DELETE",
             description=f"User '{current_user.username}' deleted annual report data for year {tahun}."
