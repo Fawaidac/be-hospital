@@ -97,15 +97,53 @@ class ReviewBotService:
                 return ""
 
     @staticmethod
+    async def fetch_and_sync_old_reviews() -> list:
+        """Fetch reviews via My Business Account Management API (current)"""
+        account_id, location_id = ReviewBotService.get_clean_account_location_ids()
+
+        access_token = await ReviewBotService.get_live_access_token()
+        if not access_token:
+            return []
+
+        # Endpoint yang benar sekarang pakai mybusinessaccountmanagement
+        url = f"https://mybusiness.googleapis.com/v4/{account_id}/{location_id}/reviews"
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(url, headers=headers)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    reviews = data.get("reviews", [])
+                    logger.info(f"✅ Berhasil mengambil {len(reviews)} review dari Google.")
+                    return reviews
+
+                logger.error(f"❌ Gagal mengambil data review [{response.status_code}]: {response.text}")
+                ReviewBotService.write_bot_log("ERROR", f"Gagal fetch review. Status: {response.status_code}")
+                return []
+
+            except Exception as e:
+                logger.error(f"❌ Error koneksi saat ambil review: {str(e)}")
+                return []
+
+    @staticmethod
     async def send_reply_to_google(review_id: str, reply_text: str) -> bool:
-        """Fungsi resmi mengirim balasan ke Google Business Profile API (v1 terbaru)"""
+        """Reply review via My Business Account Management API (current)"""
         account_id, location_id = ReviewBotService.get_clean_account_location_ids()
 
         access_token = await ReviewBotService.get_live_access_token()
         if not access_token:
             return False
 
-        url = f"https://mybusinessmanagement.googleapis.com/v1/{account_id}/{location_id}/reviews/{review_id}:reply"
+        if "reviews/" in review_id:
+            url = f"https://mybusiness.googleapis.com/v4/{review_id}/reply" 
+        else:
+            url = f"https://mybusiness.googleapis.com/v4/{account_id}/{location_id}/reviews/{review_id}/reply"
 
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -117,44 +155,17 @@ class ReviewBotService:
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.post(url, json=payload, headers=headers)
+                response = await client.put(url, json=payload, headers=headers)
                 if response.status_code == 200:
-                    logger.info(f"Berhasil membalas review ID: {review_id}")
+                    logger.info(f"✅ Berhasil membalas review ID: {review_id}")
                     return True
-                logger.error(f"Gagal balas review Google: {response.text}")
+                logger.error(f"❌ Gagal balas review Google [{response.status_code}]: {response.text}")
+                ReviewBotService.write_bot_log("ERROR", f"Gagal balas review {review_id}. Status: {response.status_code}")
                 return False
             except Exception as e:
-                logger.error(f"Error koneksi saat balas review: {str(e)}")
+                logger.error(f"❌ Error koneksi saat balas review: {str(e)}")
                 return False
-
-    @staticmethod
-    async def fetch_and_sync_old_reviews() -> list:
-        """Fungsi untuk menarik daftar seluruh review lama dari Google API (v1 terbaru)"""
-        account_id, location_id = ReviewBotService.get_clean_account_location_ids()
-
-        access_token = await ReviewBotService.get_live_access_token()
-        if not access_token:
-            return []
-
-        url = f"https://mybusinessmanagement.googleapis.com/v1/{account_id}/{location_id}/reviews"
-
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json"
-        }
-
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(url, headers=headers)
-                if response.status_code == 200:
-                    data = response.json()
-                    return data.get("reviews", [])
-                logger.error(f"Gagal mengambil data review: {response.text}")
-                return []
-            except Exception as e:
-                logger.error(f"Error koneksi saat ambil review: {str(e)}")
-                return []
-
+        
     @staticmethod
     async def analyze_review_intent_and_sentiment(comment_text: str, rating_int: int = 3) -> dict:
         """

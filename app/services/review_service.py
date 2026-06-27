@@ -20,7 +20,7 @@ def save_review_to_db_sync(
     Dijalankan di threadpool agar tidak memblokir event loop asyncio.
     """
     db = SessionLocalMain()
-    try:
+    try:    
         query = text("""
             INSERT INTO reviews (review_id, reviewer_name, rating, comment, reply_text, status, created_at)
             VALUES (:review_id, :reviewer_name, :rating, :comment, :reply_text, :status, NOW())
