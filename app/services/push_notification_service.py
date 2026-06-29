@@ -8,6 +8,7 @@ from pywebpush import webpush, WebPushException
 
 from app.core.config import settings
 from app.models.push_subscription import PushSubscriptionModel
+from app.models.notification_log import NotificationLogModel
 
 logger = logging.getLogger("PushNotificationService")
 
@@ -89,6 +90,35 @@ class PushNotificationService:
                 logger.error(f"Gagal menghapus subscription kedaluwarsa: {str(err)}")
 
     @staticmethod
+    def save_notification_log(
+        db: Session,
+        title: str,
+        body: str,
+        status: str,
+        reviewer_name: str,
+        rating: int,
+        url: str = "/dashboard/reviews"
+    ):
+        """
+        Menyimpan log notifikasi ke database agar bisa diambil via endpoint GET.
+        """
+        try:
+            log_entry = NotificationLogModel(
+                title=title,
+                body=body,
+                status=status,
+                reviewer_name=reviewer_name,
+                rating=rating,
+                url=url,
+                is_read=False
+            )
+            db.add(log_entry)
+            db.commit()
+        except Exception as err:
+            db.rollback()
+            logger.error(f"Gagal menyimpan log notifikasi: {str(err)}")
+
+    @staticmethod
     async def trigger_review_notification(
         reviewer_name: str,
         rating: int,
@@ -98,7 +128,8 @@ class PushNotificationService:
         db: Session = None
     ):
         """
-        Membuat payload notifikasi ulasan baru dan membroadcastnya ke semua subsciber.
+        Membuat payload notifikasi ulasan baru, menyimpan log ke DB,
+        lalu membroadcastnya ke semua subscriber.
         """
         if not db:
             return
@@ -117,6 +148,16 @@ class PushNotificationService:
             title = "Ulasan Baru Diterima!"
             body = f"Ulasan bintang {rating} dari {reviewer_name}.\nKomentar: \"{short_comment}\""
 
+        # Simpan log notifikasi ke database
+        PushNotificationService.save_notification_log(
+            db=db,
+            title=title,
+            body=body,
+            status=status,
+            reviewer_name=reviewer_name,
+            rating=rating
+        )
+
         payload = {
             "notification": {
                 "title": title,
@@ -131,3 +172,4 @@ class PushNotificationService:
         }
 
         await PushNotificationService.broadcast_notification(payload, db)
+
