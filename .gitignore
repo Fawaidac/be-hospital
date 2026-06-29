@@ -2,3 +2,5 @@
 __pycache__/
 *.pyc
 logs/
+private_key.pem
+public_key.pem

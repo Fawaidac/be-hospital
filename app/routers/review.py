@@ -19,6 +19,8 @@ from app.schemas.base import BaseResponse, ApiResponse
 from app.services.review_bot import ReviewBotService
 from app.models.review_template import ReviewTemplateModel
 from app.services.logger_service import ActivityLogger
+from app.services.push_notification_service import PushNotificationService
+
 
 router = APIRouter(prefix="/api", tags=["Review"])
 
@@ -52,7 +54,16 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
             db.add(ReviewKeywordModel(review_id=payload.review_id, keyword=kw))
         db.commit()
 
+        await PushNotificationService.trigger_review_notification(
+            reviewer_name=new_review.reviewer_name,
+            rating=new_review.rating,
+            comment=new_review.comment,
+            status=new_review.status,
+            db=db
+        )
+
         ActivityLogger.log(
+
             action="REVIEW_MANUAL_QUEUE",
             description=f"Review '{new_review.review_id}' from '{new_review.reviewer_name}' was added to the manual queue."
         )
@@ -93,7 +104,17 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
             db.add(ReviewKeywordModel(review_id=payload.review_id, keyword=kw))
         db.commit()
 
+        await PushNotificationService.trigger_review_notification(
+            reviewer_name=new_review.reviewer_name,
+            rating=new_review.rating,
+            comment=new_review.comment,
+            status=new_review.status,
+            reply_text=new_review.reply_text,
+            db=db
+        )
+
         ActivityLogger.log(
+
             action="REVIEW_AUTO_REPLY" if is_success else "REVIEW_AUTO_REPLY_QUEUED",
             description=(
                 f"Bot replied to review '{new_review.review_id}' with rating {new_review.rating}."

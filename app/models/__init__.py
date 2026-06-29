@@ -7,6 +7,7 @@ from app.models.pde import PDEModel
 from app.models.komplain import KomplainModel
 from app.models.target import TargetModel
 from app.models.activity_log import ActivityLogModel
+from app.models.push_subscription import PushSubscriptionModel
 
 __all__ = [
     "GoogleReviewModel",
@@ -18,4 +19,6 @@ __all__ = [
     "KomplainModel",
     "TargetModel",
     "ActivityLogModel",
+    "PushSubscriptionModel",
 ]
+

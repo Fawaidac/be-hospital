@@ -6,6 +6,8 @@ from sqlalchemy import text
 from app.core.database import SessionLocalMain
 from app.services.review_bot import ReviewBotService
 from app.services.logger_service import ActivityLogger
+from app.services.push_notification_service import PushNotificationService
+
 
 
 def save_review_to_db_sync(
@@ -88,7 +90,26 @@ async def google_review_bot_worker(replied_reviews_cache: set):
                             bot_reply
                         )
 
+                        db_session = SessionLocalMain()
+                        try:
+                            reviewer_name = r.get("reviewer", {}).get("displayName", "Pasien")
+                            comment = r.get("comment", "")
+                            rating_parsed = ReviewBotService.parse_rating(rating)
+                            await PushNotificationService.trigger_review_notification(
+                                reviewer_name=reviewer_name,
+                                rating=rating_parsed,
+                                comment=comment,
+                                status="replied",
+                                reply_text=bot_reply,
+                                db=db_session
+                            )
+                        except Exception as push_err:
+                            print(f"❌ [ReviewBot] Gagal mengirim push notification: {str(push_err)}")
+                        finally:
+                            db_session.close()
+
                         await asyncio.sleep(random.randint(3, 7))
+
 
         except Exception as e:
             print(f"❌ [ReviewBot] Terjadi kendala pada background worker: {str(e)}")

@@ -26,6 +26,11 @@ class Settings:
 
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     
+    # VAPID Keys for Web Push
+    VAPID_PUBLIC_KEY: str = os.getenv("VAPID_PUBLIC_KEY", "")
+    VAPID_PRIVATE_KEY: str = os.getenv("VAPID_PRIVATE_KEY", "")
+    VAPID_CLAIM_EMAIL: str = os.getenv("VAPID_CLAIM_EMAIL", "admin@rsud-soebandi.com")
+    
 settings = Settings()
 
 if not settings.JWT_SECRET_KEY:
