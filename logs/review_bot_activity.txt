@@ -10,3 +10,170 @@
   "error": "invalid_request",
   "error_description": "Missing required parameter: refresh_token"
 }
+[2026-06-26 08:06:50] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 08:39:40] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 08:44:40] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 08:49:40] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 08:54:40] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 08:59:40] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 09:04:40] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 09:09:40] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 09:14:41] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 09:19:41] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 10:28:14] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 10:33:15] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 10:38:16] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 10:43:16] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 10:48:16] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 10:53:16] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 10:58:16] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 11:03:16] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 11:08:17] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 11:13:17] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 11:18:17] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 11:23:17] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 11:28:17] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 11:33:17] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 11:38:18] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 11:56:20] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 12:11:00] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 12:16:00] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 12:21:00] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 12:26:01] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "invalid_request",
+  "error_description": "Missing required parameter: refresh_token"
+}
+[2026-06-26 13:50:15] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "unauthorized_client",
+  "error_description": "Unauthorized"
+}
+[2026-06-26 13:53:00] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "unauthorized_client",
+  "error_description": "Unauthorized"
+}
+[2026-06-26 13:53:02] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "unauthorized_client",
+  "error_description": "Unauthorized"
+}
+[2026-06-26 13:53:58] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "unauthorized_client",
+  "error_description": "Unauthorized"
+}
+[2026-06-26 13:54:41] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "unauthorized_client",
+  "error_description": "Unauthorized"
+}
+[2026-06-26 13:54:44] [ERROR] Gagal refresh token Google Maps API. Detail: OAuth2 Error: {
+  "error": "unauthorized_client",
+  "error_description": "Unauthorized"
+}
+[2026-06-26 14:14:10] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:19:10] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:19:51] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:24:52] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:25:35] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:27:13] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:27:22] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:27:36] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:29:21] [ERROR] Gagal fetch review. Status: 404
+[2026-06-26 14:29:24] [ERROR] Gagal fetch review. Status: 404
+[2026-06-26 14:29:30] [ERROR] Gagal fetch review. Status: 404
+[2026-06-26 14:30:39] [ERROR] Gagal fetch review. Status: 404
+[2026-06-26 14:30:44] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:31:21] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:31:32] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:34:36] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:39:37] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:39:53] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:44:53] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:49:54] [ERROR] Gagal fetch review. Status: 403
+[2026-06-26 14:50:10] [ERROR] Gagal fetch review. Status: 403
+[2026-06-27 20:18:04] [ERROR] Gagal fetch review. Status: 403
+[2026-06-27 20:28:11] [ERROR] Gagal fetch review. Status: 403
