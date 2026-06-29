@@ -13,8 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 
-# Upgrade pip ke versi terbaru lalu install requirements
+# Upgrade pip, paksa install numpy duluan, baru install sisanya dari requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir numpy==2.5.0 && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY . .
