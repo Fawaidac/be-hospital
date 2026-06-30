@@ -12,7 +12,7 @@ from app.core.security import get_current_user
 from app.models.review import GoogleReviewModel, ReviewKeywordModel
 from app.models.user import UserModel
 from app.schemas.review import (
-    BotLogLineResponse, BotStatusResponse, DashboardStatsResponse, GoogleReviewWebhook, ReviewResponse, 
+    BotLogLineResponse, BotStatusResponse, DashboardStatsResponse, GoogleReviewWebhook, PaginatedReviewResponse, PaginationMeta, ReviewResponse, 
     WebhookData, UpdateTemplateRequest, SentimentAnalysisResponse, SentimentDetail, KeywordTrendDetail
 )
 from app.schemas.base import BaseResponse, ApiResponse
@@ -82,7 +82,7 @@ async def handle_google_review_webhook(payload: GoogleReviewWebhook, db: Session
         )
     
     else:
-        bot_reply = await ReviewBotService.generate_reply_template(payload.rating, db)
+        bot_reply = await ReviewBotService.generate_reply_template(payload.rating, payload.reviewer_name, db)
         is_success = await ReviewBotService.send_reply_to_google(payload.review_id, bot_reply)
 
         new_review = GoogleReviewModel(
@@ -172,13 +172,14 @@ async def reply_review_manually(
         )
         return ApiResponse.error(message="Gagal mengirimkan balasan ke Google API.", code=500)
     
-@router.get("/reviews", response_model=BaseResponse[List[ReviewResponse]])
+@router.get("/reviews", response_model=BaseResponse[PaginatedReviewResponse])
 def get_all_reviews_for_dashboard(
     status: Optional[str] = Query(None, description="Filter berdasarkan status: 'pending' atau 'replied'"),
     time_range: Optional[str] = Query(None, description="Filter waktu: '7_days', '30_days', atau 'all_time'"),
     rating: Optional[int] = Query(None, description="Filter rating bintang: 1 sampai 5", ge=1, le=5),
     sentiment: Optional[str] = Query(None, description="Filter sentimen: 'POSITIVE', 'NEUTRAL', atau 'NEGATIVE'"),
-    limit: Optional[int] = Query(None, description="Membatasi jumlah data ulasan yang ditarik", ge=1),
+    page: int = Query(1, description="Nomor halaman, mulai dari 1", ge=1),
+    page_size: int = Query(20, description="Jumlah data per halaman", ge=1, le=100),
     db: Session = Depends(get_db_main), 
     current_user: UserModel = Depends(get_current_user)
 ):
@@ -202,12 +203,14 @@ def get_all_reviews_for_dashboard(
             start_date = now - timedelta(days=30)
             query = query.filter(GoogleReviewModel.created_at >= start_date)
 
-    query = query.order_by(GoogleReviewModel.created_at.desc())
-    
-    if limit:
-        query = query.limit(limit)
+    # Hitung total SEBELUM limit/offset diterapkan, supaya FE tahu total data & total halaman
+    total_items = query.count()
+    total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 0
 
-    reviews_db = query.all()
+    offset = (page - 1) * page_size
+
+    query = query.order_by(GoogleReviewModel.created_at.desc())
+    reviews_db = query.offset(offset).limit(page_size).all()
 
     formatted_reviews = []
     for r in reviews_db:
@@ -227,15 +230,25 @@ def get_all_reviews_for_dashboard(
             )
         )
 
+    paginated_data = PaginatedReviewResponse(
+        items=formatted_reviews,
+        meta=PaginationMeta(
+            current_page=page,
+            page_size=page_size,
+            total_items=total_items,
+            total_pages=total_pages
+        )
+    )
+
     return ApiResponse.success(
-        data=formatted_reviews, 
+        data=paginated_data, 
         message="The review data has been successfully filtered and retrieved.", 
         code=200
     )
 
 @router.post("/reviews/sync", response_model=BaseResponse[dict])
 async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: UserModel = Depends(get_current_user)):
-    old_reviews = await ReviewBotService.fetch_and_sync_old_reviews()
+    old_reviews = await ReviewBotService.fetch_all_reviews_paginated()
     count_saved = 0
 
     for rev in old_reviews:
@@ -280,7 +293,7 @@ async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: Use
                     status_reply = "pending"
                     review_replied_at = None
                 else:
-                    bot_reply = await ReviewBotService.generate_reply_template(rating, db)
+                    bot_reply = await ReviewBotService.generate_reply_template(rating, reviewer_name, db)
                     success = await ReviewBotService.send_reply_to_google(review_id, bot_reply)
                     status_reply = "replied" if success else "pending"
                     bot_reply = bot_reply if success else None
@@ -572,24 +585,43 @@ def delete_review_template(
 
 @router.get("/reviews/bot/status", response_model=BaseResponse[BotStatusResponse])
 def get_google_bot_operational_status(db: Session = Depends(get_db_main), current_user: UserModel = Depends(get_current_user)):
-    """Mengecek apakah status bot aktif atau mendadak error akibat token mati"""
+    """Mengecek apakah status bot aktif atau mendadak error akibat token mati.
+    Error HANYA dianggap relevan kalau terjadi dalam jendela waktu wajar (STALE_ERROR_MINUTES),
+    supaya error lama yang sudah lewat tidak terus-menerus dianggap status saat ini."""
     log_file_path = "logs/review_bot_activity.txt"
     bot_status = "ACTIVE"
     last_error = None
-    
+
+    STALE_ERROR_MINUTES = 15  # worker siklus tiap 5 menit, beri toleransi 3x siklus
+
     if os.path.exists(log_file_path):
         try:
             with open(log_file_path, "r", encoding="utf-8") as file:
                 lines = file.readlines()
                 for line in reversed(lines[-20:]):
                     if "[ERROR]" in line:
-                        bot_status = "ERROR"
-                        last_error = line.split("] [ERROR] ")[-1].strip()
+                        # Format baris: [YYYY-MM-DD HH:MM:SS] [ERROR] pesan...
+                        try:
+                            timestamp_str = line.split("]")[0].replace("[", "").strip()
+                            error_time = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                            age_minutes = (datetime.now() - error_time).total_seconds() / 60
+
+                            if age_minutes <= STALE_ERROR_MINUTES:
+                                bot_status = "ERROR"
+                                last_error = line.split("] [ERROR] ")[-1].strip()
+                            else:
+                                # Error sudah lama (stale), anggap bot sudah pulih.
+                                # Tetap simpan sebagai info riwayat, tapi status tetap ACTIVE.
+                                last_error = f"(Riwayat lama, {int(age_minutes)} menit lalu) " + line.split("] [ERROR] ")[-1].strip()
+                        except ValueError:
+                            # Kalau timestamp gagal di-parse, fallback ke perilaku lama (anggap relevan)
+                            bot_status = "ERROR"
+                            last_error = line.split("] [ERROR] ")[-1].strip()
                         break
         except Exception as e:
             bot_status = "ERROR"
             last_error = f"Gagal membaca file sistem log: {str(e)}"
-            
+
     total_auto = db.query(func.count(GoogleReviewModel.id))\
                    .filter(GoogleReviewModel.status == "replied", GoogleReviewModel.reply_text.isnot(None))\
                    .scalar() or 0
@@ -601,7 +633,6 @@ def get_google_bot_operational_status(db: Session = Depends(get_db_main), curren
         total_auto_replied=total_auto
     )
     return ApiResponse.success(data=data_payload, message="Bot pulse status compiled successfully.", code=200)
-
 
 @router.get("/reviews/bot/logs", response_model=BaseResponse[List[BotLogLineResponse]])
 def get_google_bot_file_logs(

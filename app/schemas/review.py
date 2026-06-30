@@ -75,3 +75,15 @@ class BotLogLineResponse(BaseModel):
     timestamp: str
     level: str
     message: str
+
+
+class PaginationMeta(BaseModel):
+    current_page: int
+    page_size: int
+    total_items: int
+    total_pages: int
+
+
+class PaginatedReviewResponse(BaseModel):
+    items: List["ReviewResponse"]
+    meta: PaginationMeta

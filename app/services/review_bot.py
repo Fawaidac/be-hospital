@@ -44,10 +44,11 @@ class ReviewBotService:
             return 3
 
     @staticmethod
-    async def generate_reply_template(rating, db_session) -> str:
-        """Mengambil balasan otomatis secara dinamis dari database master template"""
+    async def generate_reply_template(rating, reviewer_name: str, db_session) -> str:
+        """Mengambil balasan otomatis secara dinamis dari database master template
+        dan menyisipkan nama reviewer ke placeholder {nama}"""
         from app.models.review_template import ReviewTemplateModel
-        
+
         rating_int = ReviewBotService.parse_rating(rating)
 
         if rating_int in [1, 2]:
@@ -55,10 +56,12 @@ class ReviewBotService:
 
         db_template = db_session.query(ReviewTemplateModel).filter(ReviewTemplateModel.rating == rating_int).first()
 
-        if db_template and db_template.template_text:
-            return db_template.template_text
+        safe_name = reviewer_name.strip() if reviewer_name else " "
 
-        return "Terima kasih atas ulasan dan masukan yang Bapak/Ibu berikan kepada RSD dr. Soebandi. Semoga sehat selalu."
+        if db_template and db_template.template_text:
+            return db_template.template_text.replace("{nama}", safe_name).replace("\\n", "\n")
+
+        return f"Terima kasih atas ulasan dan masukan yang {safe_name} berikan kepada RSD dr. Soebandi. Semoga sehat selalu."
 
     @staticmethod
     def get_clean_account_location_ids() -> tuple[str, str]:
@@ -97,40 +100,99 @@ class ReviewBotService:
                 return ""
 
     @staticmethod
-    async def fetch_and_sync_old_reviews() -> list:
-        """Fetch reviews via My Business Account Management API (current)"""
+    async def fetch_latest_reviews() -> list:
+        """Fetch HANYA 1 halaman (terbaru) via My Business Account Management API.
+        Dipakai untuk pengecekan rutin (worker tiap 5 menit) supaya hemat kuota API
+        -- review baru selalu muncul di halaman pertama, jadi tidak perlu pagination penuh."""
         account_id, location_id = ReviewBotService.get_clean_account_location_ids()
 
         access_token = await ReviewBotService.get_live_access_token()
         if not access_token:
             return []
 
-        # Endpoint yang benar sekarang pakai mybusinessaccountmanagement
         url = f"https://mybusiness.googleapis.com/v4/{account_id}/{location_id}/reviews"
 
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json"
         }
+        params = {"pageSize": 50}
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(url, headers=headers)
+                response = await client.get(url, headers=headers, params=params)
 
                 if response.status_code == 200:
                     data = response.json()
                     reviews = data.get("reviews", [])
-                    logger.info(f"✅ Berhasil mengambil {len(reviews)} review dari Google.")
+                    logger.info(f"✅ Berhasil mengambil {len(reviews)} review terbaru dari Google (1 halaman).")
                     return reviews
 
                 logger.error(f"❌ Gagal mengambil data review [{response.status_code}]: {response.text}")
-                ReviewBotService.write_bot_log("ERROR", f"Gagal fetch review. Status: {response.status_code}")
+                ReviewBotService.write_bot_log("ERROR", f"Gagal fetch review terbaru. Status: {response.status_code}")
                 return []
 
             except Exception as e:
-                logger.error(f"❌ Error koneksi saat ambil review: {str(e)}")
+                logger.error(f"❌ Error koneksi saat ambil review terbaru: {str(e)}")
                 return []
 
+    @staticmethod
+    async def fetch_all_reviews_paginated() -> list:
+        """Fetch SEMUA reviews via My Business Account Management API, menangani
+        pagination penuh (untuk dataset besar, mis. 3100+ review). Dipakai khusus
+        untuk full backfill/sync manual, BUKAN untuk pengecekan rutin tiap 5 menit."""
+        account_id, location_id = ReviewBotService.get_clean_account_location_ids()
+
+        access_token = await ReviewBotService.get_live_access_token()
+        if not access_token:
+            return []
+
+        base_url = f"https://mybusiness.googleapis.com/v4/{account_id}/{location_id}/reviews"
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+
+        all_reviews = []
+        page_token = None
+        page_count = 0
+        max_pages = 100  # safety cap (100 x 50 = 5000 review, cukup untuk 3100 review saat ini)
+
+        async with httpx.AsyncClient() as client:
+            while True:
+                page_count += 1
+                if page_count > max_pages:
+                    logger.warning(f"⚠️ Mencapai batas aman {max_pages} halaman saat fetch review. Menghentikan pagination.")
+                    break
+
+                params = {"pageSize": 50}
+                if page_token:
+                    params["pageToken"] = page_token
+
+                try:
+                    response = await client.get(base_url, headers=headers, params=params)
+
+                    if response.status_code != 200:
+                        logger.error(f"❌ Gagal mengambil data review [{response.status_code}]: {response.text}")
+                        ReviewBotService.write_bot_log("ERROR", f"Gagal fetch review. Status: {response.status_code}")
+                        break
+
+                    data = response.json()
+                    reviews = data.get("reviews", [])
+                    all_reviews.extend(reviews)
+
+                    page_token = data.get("nextPageToken")
+                    if not page_token:
+                        break
+
+                except Exception as e:
+                    logger.error(f"❌ Error koneksi saat ambil review (halaman {page_count}): {str(e)}")
+                    break
+
+        logger.info(f"✅ Berhasil mengambil total {len(all_reviews)} review dari Google ({page_count} halaman).")
+        return all_reviews
+    
     @staticmethod
     async def send_reply_to_google(review_id: str, reply_text: str) -> bool:
         """Reply review via My Business Account Management API (current)"""
@@ -173,7 +235,21 @@ class ReviewBotService:
         Level 1: Prediksi instan via SVM Lokal (.pkl)
         Level 2: Jika SVM Ragu Total (Margin Ketidakpastian), Lempar ke Gemini AI (Hakim Garis)
         Level 3: Jika Gemini Down/Timeout, gunakan Fallback Kamus Lokal
+
+        Aturan khusus: jika comment_text kosong/terlalu pendek, langsung return
+        NEUTRAL + is_asking=False TANPA melihat rating sama sekali. Rating bintang
+        tanpa komentar tidak cukup informasi untuk menyimpulkan sentimen tekstual.
         """
+        empty_comment_result = {
+            "is_asking": False,
+            "sentiment": "NEUTRAL",
+            "keywords": []
+        }
+
+        if not comment_text or len(comment_text.strip()) < 3:
+            return empty_comment_result
+
+        # fallback (dipakai HANYA kalau komentar ADA isinya, tapi SVM/Gemini gagal total)
         fallback_sentiment = "NEUTRAL"
         if rating_int in [4, 5]:
             fallback_sentiment = "POSITIVE"
@@ -181,41 +257,37 @@ class ReviewBotService:
             fallback_sentiment = "NEGATIVE"
 
         fallback_keywords = []
-        if comment_text:
-            text_lower = comment_text.lower()
-            kamus_lokal = {
-                "ramah": "#friendly", "baik": "#friendly", "sopan": "#friendly", "senyum": "#friendly", 
-                "telaten": "#friendly", "sabar": "#friendly", "humble": "#friendly", "care": "#friendly",
-                "lama": "#slow_response", "antri": "#slow_response", "lelet": "#slow_response", 
-                "lambat": "#slow_response", "ngaret": "#slow_response", "suwe": "#slow_response",
-                "nunggu": "#slow_response", "berjam-jam": "#slow_response", "bersih": "#clean", 
-                "wangi": "#clean", "rapi": "#clean", "resik": "#clean", "nyaman": "#cozy", 
-                "adem": "#cozy", "tenang": "#cozy", "sejuk": "#cozy", "ac dingin": "#cozy",
-                "cepat": "#gercep", "cepet": "#gercep", "kilat": "#gercep", "gercep": "#gercep", 
-                "satset": "#gercep", "responsif": "#gercep", "sigap": "#gercep", "jutek": "#unfriendly", 
-                "marah": "#unfriendly", "kasar": "#unfriendly", "bentak": "#unfriendly", "cuek": "#unfriendly", 
-                "penuh": "#crowded", "sesak": "#crowded", "antrean": "#crowded", "padat": "#crowded",
-                "bagus": "#aesthetic", "indah": "#aesthetic", "modern": "#aesthetic", "keren": "#aesthetic", 
-                "kumuh": "#hygiene", "kotor": "#hygiene", "bau": "#hygiene", "pesing": "#hygiene",
-                "bpjs lancar": "#fast_service", "online mudah": "#fast_service", "pendaftaran cepat": "#fast_service",
-                "panas": "#hot_vibe", "sumuk": "#hot_vibe", "ac mati": "#hot_vibe", "gerah": "#hot_vibe",
-                "ribet": "#l_vibe", "kecewa": "#l_vibe", "parah": "#l_vibe", "buruk": "#l_vibe"
-            }   
-            for kata_kunci, hashtag in kamus_lokal.items():
-                if kata_kunci in text_lower:
-                    if hashtag not in fallback_keywords:
-                        fallback_keywords.append(hashtag)
-                if len(fallback_keywords) >= 3:
-                    break
+        text_lower = comment_text.lower()
+        kamus_lokal = {
+            "ramah": "#friendly", "baik": "#friendly", "sopan": "#friendly", "senyum": "#friendly", 
+            "telaten": "#friendly", "sabar": "#friendly", "humble": "#friendly", "care": "#friendly",
+            "lama": "#slow_response", "antri": "#slow_response", "lelet": "#slow_response", 
+            "lambat": "#slow_response", "ngaret": "#slow_response", "suwe": "#slow_response",
+            "nunggu": "#slow_response", "berjam-jam": "#slow_response", "bersih": "#clean", 
+            "wangi": "#clean", "rapi": "#clean", "resik": "#clean", "nyaman": "#cozy", 
+            "adem": "#cozy", "tenang": "#cozy", "sejuk": "#cozy", "ac dingin": "#cozy",
+            "cepat": "#gercep", "cepet": "#gercep", "kilat": "#gercep", "gercep": "#gercep", 
+            "satset": "#gercep", "responsif": "#gercep", "sigap": "#gercep", "jutek": "#unfriendly", 
+            "marah": "#unfriendly", "kasar": "#unfriendly", "bentak": "#unfriendly", "cuek": "#unfriendly", 
+            "penuh": "#crowded", "sesak": "#crowded", "antrean": "#crowded", "padat": "#crowded",
+            "bagus": "#aesthetic", "indah": "#aesthetic", "modern": "#aesthetic", "keren": "#aesthetic", 
+            "kumuh": "#hygiene", "kotor": "#hygiene", "bau": "#hygiene", "pesing": "#hygiene",
+            "bpjs lancar": "#fast_service", "online mudah": "#fast_service", "pendaftaran cepat": "#fast_service",
+            "panas": "#hot_vibe", "sumuk": "#hot_vibe", "ac mati": "#hot_vibe", "gerah": "#hot_vibe",
+            "ribet": "#l_vibe", "kecewa": "#l_vibe", "parah": "#l_vibe", "buruk": "#l_vibe"
+        }   
+        for kata_kunci, hashtag in kamus_lokal.items():
+            if kata_kunci in text_lower:
+                if hashtag not in fallback_keywords:
+                    fallback_keywords.append(hashtag)
+            if len(fallback_keywords) >= 3:
+                break
 
         default_result = {
             "is_asking": False, 
             "sentiment": fallback_sentiment, 
             "keywords": fallback_keywords
         }
-
-        if not comment_text or len(comment_text.strip()) < 3:
-            return default_result
 
         pake_gemini_cascade = False
         local_sentiment = fallback_sentiment
@@ -325,7 +397,6 @@ class ReviewBotService:
                     return default_result
 
         return default_result
-
     @staticmethod
     def write_bot_log(level: str, message: str):
         """Mencatat aktivitas operasional bot ke dalam file text lokal log"""
