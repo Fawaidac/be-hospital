@@ -28,17 +28,25 @@ router = APIRouter(prefix="/api", tags=["Auth"])
 async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
     """
     Endpoint untuk autentikasi user dengan penentuan hak akses aplikasi.
+    Mendukung login menggunakan username ATAU email.
     """
-    user = db.query(UserModel).filter(UserModel.username == payload.username).first()
+    from sqlalchemy import or_
+
+    user = db.query(UserModel).filter(
+        or_(
+            UserModel.username == payload.username,
+            UserModel.email == payload.username  # payload.username dipakai sebagai field input (bisa isi email)
+        )
+    ).first()
 
     if not user or not verify_password(payload.password, user.password):
         ActivityLogger.log(
             username=payload.username,
             action="LOGIN_FAILED",
-            description=f"Failed login attempt for username '{payload.username}'."
+            description=f"Failed login attempt for username/email '{payload.username}'."
         )
         return ApiResponse.error(
-            message="Invalid username or password.",
+            message="Invalid username/email or password.",
             code=status.HTTP_401_UNAUTHORIZED
         )
 
@@ -52,16 +60,14 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
             description=f"User '{user.username}' password hash was automatically upgraded from SHA-256 to Argon2."
         )
 
-    # Menyisipkan klaim sub dan app_access ke dalam enkripsi JWT token
     access_token = create_access_token(data={"sub": user.username, "app_access": user.app_access})
-    
+
     ActivityLogger.log(
         username=user.username,
         action="LOGIN_SUCCESS",
         description=f"User '{user.username}' logged in successfully."
     )
 
-    # 🔥 PERBAIKAN: Melempar data sesuai dengan schema LoginData (token & app_access)
     return ApiResponse.success(
         data=LoginData(
             token=access_token,
@@ -70,7 +76,6 @@ async def login(payload: LoginRequest, db: Session = Depends(get_db_main)):
         message="Login successful.",
         code=status.HTTP_200_OK
     )
-
 
 @router.get(
     "/me",
