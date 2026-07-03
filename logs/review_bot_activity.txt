@@ -177,3 +177,6 @@
 [2026-06-26 14:50:10] [ERROR] Gagal fetch review. Status: 403
 [2026-06-27 20:18:04] [ERROR] Gagal fetch review. Status: 403
 [2026-06-27 20:28:11] [ERROR] Gagal fetch review. Status: 403
+[2026-07-03 09:31:57] [SUCCESS] [Gemini Hakim Garis] Analisis berhasil. Result: INTENT=FALSE
+[2026-07-03 09:31:58] [INFO] [SVM Lokal Prob] Pos:0.96 | Neg:0.00 | True(Ask):0.01
+[2026-07-03 09:31:58] [SUCCESS] [SVM Lokal Pede] Sentimen: POSITIVE | Intent (IsAsking): False

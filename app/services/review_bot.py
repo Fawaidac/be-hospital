@@ -90,13 +90,16 @@ class ReviewBotService:
             try:
                 response = await client.post(url, data=payload)
                 if response.status_code == 200:
-                    return response.json().get("access_token", "")
+                    token = response.json().get("access_token", "")
+                    ReviewBotService.write_bot_log("SUCCESS", "Berhasil mendapatkan Access Token Google OAuth2.")
+                    return token
                 err_msg = f"OAuth2 Error: {response.text.strip()}"
                 logger.error(f"Gagal refresh token Google: {err_msg}")
                 ReviewBotService.write_bot_log("ERROR", f"Gagal refresh token Google Maps API. Detail: {err_msg}")
                 return ""
             except Exception as e:
                 logger.error(f"Error koneksi saat refresh token: {str(e)}")
+                ReviewBotService.write_bot_log("ERROR", f"Error koneksi saat refresh token: {str(e)}")
                 return ""
 
     @staticmethod
@@ -126,6 +129,7 @@ class ReviewBotService:
                     data = response.json()
                     reviews = data.get("reviews", [])
                     logger.info(f"✅ Berhasil mengambil {len(reviews)} review terbaru dari Google (1 halaman).")
+                    ReviewBotService.write_bot_log("SUCCESS", f"Berhasil mengambil {len(reviews)} review terbaru dari Google (1 halaman).")
                     return reviews
 
                 logger.error(f"❌ Gagal mengambil data review [{response.status_code}]: {response.text}")
@@ -134,6 +138,7 @@ class ReviewBotService:
 
             except Exception as e:
                 logger.error(f"❌ Error koneksi saat ambil review terbaru: {str(e)}")
+                ReviewBotService.write_bot_log("ERROR", f"Error koneksi saat ambil review terbaru: {str(e)}")
                 return []
 
     @staticmethod
@@ -164,6 +169,7 @@ class ReviewBotService:
                 page_count += 1
                 if page_count > max_pages:
                     logger.warning(f"⚠️ Mencapai batas aman {max_pages} halaman saat fetch review. Menghentikan pagination.")
+                    ReviewBotService.write_bot_log("WARNING", f"Mencapai batas aman {max_pages} halaman saat fetch review. Pagination dihentikan.")
                     break
 
                 params = {"pageSize": 50}
@@ -188,9 +194,11 @@ class ReviewBotService:
 
                 except Exception as e:
                     logger.error(f"❌ Error koneksi saat ambil review (halaman {page_count}): {str(e)}")
+                    ReviewBotService.write_bot_log("ERROR", f"Error koneksi saat ambil review (halaman {page_count}): {str(e)}")
                     break
 
         logger.info(f"✅ Berhasil mengambil total {len(all_reviews)} review dari Google ({page_count} halaman).")
+        ReviewBotService.write_bot_log("SUCCESS", f"Berhasil mengambil total {len(all_reviews)} review dari Google ({page_count} halaman).")
         return all_reviews
     
     @staticmethod
@@ -220,12 +228,14 @@ class ReviewBotService:
                 response = await client.put(url, json=payload, headers=headers)
                 if response.status_code == 200:
                     logger.info(f"✅ Berhasil membalas review ID: {review_id}")
+                    ReviewBotService.write_bot_log("SUCCESS", f"Berhasil membalas review ID: {review_id}")
                     return True
                 logger.error(f"❌ Gagal balas review Google [{response.status_code}]: {response.text}")
                 ReviewBotService.write_bot_log("ERROR", f"Gagal balas review {review_id}. Status: {response.status_code}")
                 return False
             except Exception as e:
                 logger.error(f"❌ Error koneksi saat balas review: {str(e)}")
+                ReviewBotService.write_bot_log("ERROR", f"Error koneksi saat balas review ID {review_id}: {str(e)}")
                 return False
         
     @staticmethod
@@ -310,6 +320,7 @@ class ReviewBotService:
                 max_prob_sentimen = float(max(prob_sentimen))
 
                 logger.info(f"📊 [SVM Lokal Prob] Pos:{prob_pos:.2f} | Neg:{prob_neg:.2f} | True(Ask):{prob_true:.2f}")
+                ReviewBotService.write_bot_log("INFO", f"[SVM Lokal Prob] Pos:{prob_pos:.2f} | Neg:{prob_neg:.2f} | True(Ask):{prob_true:.2f}")
 
                 intent_ragu = (0.35 <= prob_true <= 0.65)
                 sentimen_ragu = (max_prob_sentimen < 0.55)
@@ -322,12 +333,14 @@ class ReviewBotService:
                         alasan_cascade.append(f"Sentimen Ragu (Max Prob: {max_prob_sentimen:.2f})")
                     
                     logger.warning(f"🛑 [SVM Lokal Ragu] Mengaktifkan Cascade Level 2 -> Minta bantuan Gemini AI... Alasan: {', '.join(alasan_cascade)}")
+                    ReviewBotService.write_bot_log("WARNING", f"[SVM Lokal Ragu] Cascade Level 2 diaktifkan. Alasan: {', '.join(alasan_cascade)}")
                     pake_gemini_cascade = True
                 else:
                     local_sentiment = model_svm_sentimen.predict(teks_vector)[0]
                     local_is_asking = model_svm_intent.predict(teks_vector)[0] == "True"
                     
                     logger.info(f"⚡ [SVM Lokal Pede] Sentimen: {local_sentiment} | Intent (IsAsking): {local_is_asking}")
+                    ReviewBotService.write_bot_log("SUCCESS", f"[SVM Lokal Pede] Sentimen: {local_sentiment} | Intent (IsAsking): {local_is_asking}")
                     
                     return {
                         "is_asking": local_is_asking,
@@ -337,11 +350,13 @@ class ReviewBotService:
 
             except Exception as e:
                 logger.error(f"⚠️ Kegagalan komputasi SVM Lokal: {str(e)}. Alihkan paksa ke Gemini.")
+                ReviewBotService.write_bot_log("ERROR", f"Kegagalan komputasi SVM Lokal: {str(e)}. Alihkan paksa ke Gemini.")
                 pake_gemini_cascade = True
 
         if pake_gemini_cascade or not tfidf:
             if not hasattr(settings, "GEMINI_API_KEY") or not settings.GEMINI_API_KEY:
                 logger.warning("⚠️ Gemini API Key kosong. Masuk ke Pertahanan Terakhir (Level 3: Fallback).")
+                ReviewBotService.write_bot_log("WARNING", "Gemini API Key kosong. Masuk ke Level 3 (Fallback).")
                 return default_result
 
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
@@ -371,11 +386,13 @@ class ReviewBotService:
                     
                     if response.status_code != 200:
                         logger.warning(f"⚠️ Gemini API bermasalah ({response.status_code}). Masuk ke Level 3 (Fallback).")
+                        ReviewBotService.write_bot_log("WARNING", f"Gemini API bermasalah ({response.status_code}). Masuk ke Level 3 (Fallback).")
                         return default_result
                         
                     res_json = response.json()
                     ai_reply = res_json['candidates'][0]['content']['parts'][0]['text'].strip().upper()
                     logger.info(f"🔮 [Gemini Hakim Garis Result]: {ai_reply}")
+                    ReviewBotService.write_bot_log("SUCCESS", f"[Gemini Hakim Garis] Analisis berhasil. Result: {ai_reply}")
                     
                     parsed = {}
                     for item in ai_reply.split(";"):
@@ -394,6 +411,7 @@ class ReviewBotService:
                     
                 except Exception as e:
                     logger.error(f"❌ Gagal koneksi ke Gemini API: {str(e)}. Masuk ke Level 3 (Fallback).")
+                    ReviewBotService.write_bot_log("ERROR", f"Gagal koneksi ke Gemini API: {str(e)}. Masuk ke Level 3 (Fallback).")
                     return default_result
 
         return default_result

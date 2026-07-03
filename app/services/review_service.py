@@ -65,9 +65,11 @@ def save_already_replied_review_sync(rev: dict, ai_keywords: list, ai_sentiment:
         db.commit()
 
         print(f"💾 [ReviewBot] Review lama '{review_id}' (sudah dibalas sebelumnya) disinkronkan ke DB.")
+        ReviewBotService.write_bot_log("SUCCESS", f"Review lama '{review_id}' (sudah dibalas sebelumnya) berhasil disinkronkan ke DB.")
     except Exception as db_err:
         db.rollback()
         print(f"❌ [ReviewBot] Gagal menyinkronkan review lama ke DB: {str(db_err)}")
+        ReviewBotService.write_bot_log("ERROR", f"Gagal menyinkronkan review lama ke DB: {str(db_err)}")
     finally:
         db.close()
 
@@ -117,9 +119,11 @@ def save_auto_replied_review_sync(
             description=f"Bot automatically replied to review '{review_id}' with rating {rating_int}."
         )
         print(f"💾 [ReviewBot] Berhasil menyimpan balasan ulasan ID {review_id} ke DB.")
+        ReviewBotService.write_bot_log("SUCCESS", f"Berhasil menyimpan balasan ulasan ID {review_id} ke DB.")
     except Exception as db_err:
         db.rollback()
         print(f"❌ [ReviewBot] Gagal menyimpan ke DB: {str(db_err)}")
+        ReviewBotService.write_bot_log("ERROR", f"Gagal menyimpan balasan ke DB. Review ID: {review_id}. Error: {str(db_err)}")
     finally:
         db.close()
 
@@ -135,10 +139,12 @@ async def google_review_bot_worker(replied_reviews_cache: set):
       atau webhook, bukan lewat worker ini).
     """
     print("🤖 [ReviewBot] Worker otomatis telah aktif di latar belakang...")
+    ReviewBotService.write_bot_log("INFO", "Worker otomatis telah aktif di latar belakang.")
 
     while True:
         try:
             print("🔄 [ReviewBot] Melakukan pengecekan review terbaru ke Google API...")
+            ReviewBotService.write_bot_log("INFO", "Melakukan pengecekan review terbaru ke Google API...")
             reviews = await ReviewBotService.fetch_latest_reviews()
             loop = asyncio.get_running_loop()
 
@@ -171,17 +177,20 @@ async def google_review_bot_worker(replied_reviews_cache: set):
                     continue
 
                 print(f"📌 [ReviewBot] Menemukan review baru (ID: {review_id}) dengan Rating: {rating}")
+                ReviewBotService.write_bot_log("INFO", f"Menemukan review baru belum dibalas. ID: {review_id}, Rating: {rating}")
                 reviewer_name = r.get("reviewer", {}).get("displayName", "Pasien")
 
                 if rating_int in [1, 2]:
                     # Rating rendah: jangan auto-reply, biarkan masuk antrean manual Humas.
                     print(f"⚠️ [ReviewBot] Review {review_id} rating rendah ({rating_int}). Dilewati, tunggu balasan manual via dashboard.")
+                    ReviewBotService.write_bot_log("WARNING", f"Review {review_id} rating rendah ({rating_int}). Dilewati, tunggu balasan manual.")
                     await asyncio.sleep(random.randint(1, 3))
                     continue
 
                 ai_analysis = await ReviewBotService.analyze_review_intent_and_sentiment(comment, rating_int)
                 if ai_analysis["is_asking"]:
                     print(f"⚠️ [ReviewBot] Review {review_id} terdeteksi mengandung pertanyaan. Dilewati, tunggu balasan manual via dashboard.")
+                    ReviewBotService.write_bot_log("WARNING", f"Review {review_id} mengandung pertanyaan. Dilewati, tunggu balasan manual.")
                     await asyncio.sleep(random.randint(1, 3))
                     continue
 
@@ -220,6 +229,7 @@ async def google_review_bot_worker(replied_reviews_cache: set):
                         )
                     except Exception as push_err:
                         print(f"❌ [ReviewBot] Gagal mengirim push notification: {str(push_err)}")
+                        ReviewBotService.write_bot_log("ERROR", f"Gagal mengirim push notification untuk review {review_id}: {str(push_err)}")
                     finally:
                         db_session.close()
 
@@ -227,5 +237,6 @@ async def google_review_bot_worker(replied_reviews_cache: set):
 
         except Exception as e:
             print(f"❌ [ReviewBot] Terjadi kendala pada background worker: {str(e)}")
+            ReviewBotService.write_bot_log("ERROR", f"Terjadi kendala pada background worker: {str(e)}")
 
         await asyncio.sleep(300)
