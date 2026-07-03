@@ -1,8 +1,9 @@
 import asyncio
 import os
 from fastapi import FastAPI, Request 
-from fastapi.responses import JSONResponse, HTMLResponse 
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse # Tambahkan FileResponse disini
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles # Tambahkan StaticFiles untuk folder build Flutter
 from fastapi.templating import Jinja2Templates 
 from fastapi.middleware.cors import CORSMiddleware 
 from dotenv import load_dotenv
@@ -12,7 +13,6 @@ from app.core.security import AuthException
 from app.schemas.base import ApiResponse
 from app.services.review_service import google_review_bot_worker
 from app.routers import komplain, log, revenue, review, auth, users, notifications
-
 
 load_dotenv()
 
@@ -81,6 +81,7 @@ async def validation_exception_handler(request, exc):
     )
 
 
+# --- ROUTER API UTAMA (Wajib Dideklarasikan Duluan) ---
 app.include_router(auth.router)
 app.include_router(review.router)
 app.include_router(komplain.router)
@@ -88,3 +89,51 @@ app.include_router(revenue.router)
 app.include_router(log.router)
 app.include_router(users.router)
 app.include_router(notifications.router)
+
+
+# =========================================================================
+# 🚀 INTEGRASI FRONTEND FLUTTER WEB (DITARUH DI PALING BAWAH)
+# =========================================================================
+
+# =========================================================================
+# 🚀 INTEGRASI FRONTEND FLUTTER WEB (DITARUH DI PALING BAWAH)
+# =========================================================================
+
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend_dist")
+
+if os.path.exists(FRONTEND_DIR):
+    # 1. Mount folder assets bawaan Flutter
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets")), name="flutter_assets")
+    
+    # 🌟 PENTING: Mount folder canvaskit bawaan Flutter agar rendering grafis aman
+    if os.path.exists(os.path.join(FRONTEND_DIR, "canvaskit")):
+        app.mount("/canvaskit", StaticFiles(directory=os.path.join(FRONTEND_DIR, "canvaskit")), name="flutter_canvaskit")
+
+    # 2. Tangkap URL Root (/) untuk memunculkan dashboard Flutter
+    @app.get("/")
+    async def serve_flutter_index():
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+    # 3. Solusi Jaring Pengaman Router + Handler File Statis di Root
+    @app.get("/{catchall:path}")
+    async def walk_around_routing(catchall: str):
+        # Jika user menembak API palsu/salah, lempar error JSON API asli
+        if catchall.startswith("api/"):
+            return JSONResponse(status_code=404, content={"success": False, "message": "API Endpoint Not Found"})
+        
+        # 🌟 VALIDASI FILE STATIS ROOT (Mencegah eror Unexpected token '<')
+        # Cek apakah file yang diminta browser (seperti flutter_bootstrap.js, manifest.json, dll) ada di root frontend_dist
+        file_path = os.path.join(FRONTEND_DIR, catchall)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        
+        # Selain API dan file statis asli (misal user ngakses route /dashboard), oper kendali ke index.html Flutter
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+else:
+    @app.get("/")
+    async def frontend_fallback():
+        return HTMLResponse("<h3>Backend RSUD dr. Soebandi Aktif. Folder 'frontend_dist' belum di-upload.</h3>")
+    # Mode cadangan jika folder frontend belum di-upload ke server VPS
+    @app.get("/")
+    async def frontend_fallback():
+        return HTMLResponse("<h3>Backend RSUD dr. Soebandi Aktif. Folder 'frontend_dist' belum di-upload.</h3>")

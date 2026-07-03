@@ -180,3 +180,13 @@
 [2026-07-03 09:31:57] [SUCCESS] [Gemini Hakim Garis] Analisis berhasil. Result: INTENT=FALSE
 [2026-07-03 09:31:58] [INFO] [SVM Lokal Prob] Pos:0.96 | Neg:0.00 | True(Ask):0.01
 [2026-07-03 09:31:58] [SUCCESS] [SVM Lokal Pede] Sentimen: POSITIVE | Intent (IsAsking): False
+[2026-07-03 10:38:31] [INFO] [SVM Lokal Prob] Pos:0.92 | Neg:0.00 | True(Ask):0.01
+[2026-07-03 10:38:31] [SUCCESS] [SVM Lokal Pede] Sentimen: POSITIVE | Intent (IsAsking): False
+[2026-07-03 10:38:34] [INFO] [SVM Lokal Prob] Pos:0.34 | Neg:0.00 | True(Ask):0.03
+[2026-07-03 10:38:34] [SUCCESS] [SVM Lokal Pede] Sentimen: NEUTRAL | Intent (IsAsking): False
+[2026-07-03 10:38:36] [INFO] [SVM Lokal Prob] Pos:0.27 | Neg:0.00 | True(Ask):0.00
+[2026-07-03 10:38:36] [SUCCESS] [SVM Lokal Pede] Sentimen: NEUTRAL | Intent (IsAsking): False
+[2026-07-03 10:38:38] [INFO] [SVM Lokal Prob] Pos:0.03 | Neg:0.77 | True(Ask):0.05
+[2026-07-03 10:38:38] [SUCCESS] [SVM Lokal Pede] Sentimen: NEUTRAL | Intent (IsAsking): False
+[2026-07-03 10:38:40] [INFO] [SVM Lokal Prob] Pos:0.05 | Neg:0.00 | True(Ask):0.08
+[2026-07-03 10:38:40] [SUCCESS] [SVM Lokal Pede] Sentimen: NEUTRAL | Intent (IsAsking): False
