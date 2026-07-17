@@ -3,6 +3,7 @@ from app.services.review_service import save_auto_replied_review_sync, save_alre
 from app.services.auth_service import AuthService
 from app.services.komplain_service import KomplainService
 from app.services.revenue_service import RevenueService
+from app.services.laporan_rawat_inap_service import LaporanRawatInapService
 
 __all__ = [
     "ReviewBotService",
@@ -11,4 +12,6 @@ __all__ = [
     "AuthService",
     "KomplainService",
     "RevenueService",
+    "LaporanRawatInapService",
 ]
+

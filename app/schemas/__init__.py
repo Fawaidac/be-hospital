@@ -8,6 +8,12 @@ from app.schemas.base import BaseResponse, ApiResponse
 from app.schemas.komplain import KomplainResponse, PdeResponse, PaginatedKomplain, PdePerformanceItem, DashboardKomplainResponse
 from app.schemas.revenue import TargetInput, CategoryAmountInput, RealisasiInput, RevenueStoreRequest
 from app.schemas.users import UserResponse, GlobalCreateUserRequest, GlobalUpdateUserRequest
+from app.schemas.laporan_rawat_inap import (
+    LaporanRawatInapCreate,
+    LaporanRawatInapUpdate,
+    LaporanRawatInapResponse,
+    VIndikatorKinerjaResponse,
+)
 
 __all__ = [
     "GoogleReviewWebhook",
@@ -30,5 +36,10 @@ __all__ = [
     "RevenueStoreRequest",
     "UserResponse",
     "GlobalCreateUserRequest",
-    "GlobalUpdateUserRequest"
+    "GlobalUpdateUserRequest",
+    "LaporanRawatInapCreate",
+    "LaporanRawatInapUpdate",
+    "LaporanRawatInapResponse",
+    "VIndikatorKinerjaResponse",
 ]
+

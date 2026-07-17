@@ -9,6 +9,7 @@ from app.models.target import TargetModel
 from app.models.activity_log import ActivityLogModel
 from app.models.push_subscription import PushSubscriptionModel
 from app.models.notification_log import NotificationLogModel
+from app.models.laporan_rawat_inap import LaporanRawatInapModel, VIndikatorPelayananLengkapModel
 
 __all__ = [
     "GoogleReviewModel",
@@ -22,5 +23,8 @@ __all__ = [
     "ActivityLogModel",
     "PushSubscriptionModel",
     "NotificationLogModel",
+    "LaporanRawatInapModel",
+    "VIndikatorPelayananLengkapModel",
 ]
+
 
