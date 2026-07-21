@@ -4,6 +4,7 @@ from app.services.auth_service import AuthService
 from app.services.komplain_service import KomplainService
 from app.services.revenue_service import RevenueService
 from app.services.laporan_rawat_inap_service import LaporanRawatInapService
+from app.services.pelayanan import PelayananService
 
 __all__ = [
     "ReviewBotService",
@@ -13,5 +14,6 @@ __all__ = [
     "KomplainService",
     "RevenueService",
     "LaporanRawatInapService",
+    "PelayananService"
 ]
 

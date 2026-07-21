@@ -14,6 +14,7 @@ from app.schemas.laporan_rawat_inap import (
     LaporanRawatInapResponse,
     VIndikatorKinerjaResponse,
 )
+from app.schemas.pelayanan import LaporanGabunganResponse
 
 __all__ = [
     "GoogleReviewWebhook",
@@ -41,5 +42,6 @@ __all__ = [
     "LaporanRawatInapUpdate",
     "LaporanRawatInapResponse",
     "VIndikatorKinerjaResponse",
+    "LaporanGabunganResponse"
 ]
 

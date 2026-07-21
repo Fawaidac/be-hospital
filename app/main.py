@@ -12,7 +12,7 @@ from app.core.database import BaseMain, BasePSC, engine_main, engine_psc
 from app.core.security import AuthException
 from app.schemas.base import ApiResponse
 from app.services.review_service import google_review_bot_worker
-from app.routers import komplain, laporan_kunjungan, log, revenue, review, auth, users, notifications, laporan_rawat_inap
+from app.routers import komplain, laporan_kunjungan, log, pelayanan, revenue, review, auth, users, notifications, laporan_rawat_inap
 
 
 load_dotenv()
@@ -91,7 +91,8 @@ app.include_router(log.router)
 app.include_router(users.router)
 app.include_router(notifications.router)
 app.include_router(laporan_rawat_inap.router)
-app.include_router(laporan_kunjungan.router)  
+app.include_router(laporan_kunjungan.router)
+app.include_router(pelayanan.router)
 
 
 # =========================================================================

@@ -10,6 +10,7 @@ from app.models.activity_log import ActivityLogModel
 from app.models.push_subscription import PushSubscriptionModel
 from app.models.notification_log import NotificationLogModel
 from app.models.laporan_rawat_inap import LaporanRawatInapModel, VIndikatorPelayananLengkapModel
+from app.models.pelayanan import KelompokPelayananModel, RuanganModel, KelasPerawatanModel, PeriodeModel, StatistikRawatInapModel, VStatistikRawatInap, VRekapPelayanan
 
 __all__ = [
     "GoogleReviewModel",
@@ -25,6 +26,13 @@ __all__ = [
     "NotificationLogModel",
     "LaporanRawatInapModel",
     "VIndikatorPelayananLengkapModel",
+    "KelompokPelayananModel",
+    "RuanganModel",
+    "KelasPerawatanModel",
+    "PeriodeModel",
+    "StatistikRawatInapModel",
+    "VStatistikRawatInap",
+    "VRekapPelayanan"
 ]
 
 
