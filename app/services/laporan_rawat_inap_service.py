@@ -364,7 +364,7 @@ class LaporanRawatInapService:
                 
                 "o_pasien_per_hari": o_total,
                 "bor": total_raw["bor"],
-                "los": total_raw["los"],
+                "los": total_raw["los_dinkes"],
                 "toi": total_raw["toi"],
                 "bto": total_raw["bto"]
             }

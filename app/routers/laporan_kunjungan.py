@@ -7,9 +7,9 @@ from app.schemas.base import ApiResponse
 from app.schemas.laporan_kunjungan import GrandTotalKunjunganResponse
 from app.services.laporan_kunjungan_service import LaporanKunjunganService
 
-router = APIRouter(prefix="/api", tags=["Laporan Kunjungan"])
+router = APIRouter(prefix="/api", tags=["Laporan Rawat Inap"])
 
-@router.get("/laporan-all-kunjungan")
+@router.get("/kunjungan/ri-rj")
 def get_grand_total_report(
     tahun: int = Query(..., description="Filter berdasarkan tahun"),
     db: Session = Depends(get_db_main),

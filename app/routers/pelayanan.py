@@ -11,7 +11,7 @@ from app.schemas.base import ApiResponse
 
 router = APIRouter(prefix="/api", tags=["Pelayanan"])
 
-@router.get("/laporan-terpadu")
+@router.get("/kunjungan/bbj")
 def read_laporan_terpadu(
     bulan: Optional[int] = Query(None, description="Filter Bulan (1-12)", ge=1, le=12),
     tahun: Optional[int] = Query(None, description="Filter Tahun"),

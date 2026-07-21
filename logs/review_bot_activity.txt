@@ -190,3 +190,5 @@
 [2026-07-03 10:38:38] [SUCCESS] [SVM Lokal Pede] Sentimen: NEUTRAL | Intent (IsAsking): False
 [2026-07-03 10:38:40] [INFO] [SVM Lokal Prob] Pos:0.05 | Neg:0.00 | True(Ask):0.08
 [2026-07-03 10:38:40] [SUCCESS] [SVM Lokal Pede] Sentimen: NEUTRAL | Intent (IsAsking): False
+[2026-07-21 11:53:06] [INFO] [SVM Lokal Prob] Pos:0.01 | Neg:0.00 | True(Ask):0.01
+[2026-07-21 11:53:06] [SUCCESS] [SVM Lokal Pede] Sentimen: NEUTRAL | Intent (IsAsking): False

@@ -19,7 +19,7 @@ from app.services.logger_service import ActivityLogger
 router = APIRouter(prefix="/api", tags=["Laporan Rawat Inap"])
 
 
-@router.get("/laporan-rawat-inap")
+@router.get("/indikator-dinkes-bbj")
 def index(
     tahun: int = Query(..., description="Filter by year"),
     db: Session = Depends(get_db_main),
@@ -32,67 +32,67 @@ def index(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/laporan-rawat-inap", status_code=201)
-def store(
-    payload: LaporanRawatInapBulkCreate,
-    db: Session = Depends(get_db_main),
-    current_user: UserModel = Depends(super_admin_only)
-):
-    try:
-        data = LaporanRawatInapService.create_bulk(db, payload)
-        ActivityLogger.log(
-            username=current_user.username,
-            action="RAWAT_INAP_CREATE",
-            description=f"User '{current_user.username}' created inpatient report for year {payload.tahun}, months {[i.bulan for i in payload.data]}."
-        )
-        return ApiResponse.success(data=data, message="Laporan rawat inap berhasil ditambahkan.", code=201)
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# @router.post("/laporan-rawat-inap", status_code=201)
+# def store(
+#     payload: LaporanRawatInapBulkCreate,
+#     db: Session = Depends(get_db_main),
+#     current_user: UserModel = Depends(super_admin_only)
+# ):
+#     try:
+#         data = LaporanRawatInapService.create_bulk(db, payload)
+#         ActivityLogger.log(
+#             username=current_user.username,
+#             action="RAWAT_INAP_CREATE",
+#             description=f"User '{current_user.username}' created inpatient report for year {payload.tahun}, months {[i.bulan for i in payload.data]}."
+#         )
+#         return ApiResponse.success(data=data, message="Laporan rawat inap berhasil ditambahkan.", code=201)
+#     except HTTPException as he:
+#         raise he
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.put("/laporan-rawat-inap/{id}")
-def update(
-    id: int,
-    payload: LaporanRawatInapUpdate,
-    db: Session = Depends(get_db_main),
-    current_user: UserModel = Depends(super_admin_only)
-):
-    try:
-        data = LaporanRawatInapService.update(db, id, payload)
-        ActivityLogger.log(
-            username=current_user.username,
-            action="RAWAT_INAP_UPDATE",
-            description=f"User '{current_user.username}' updated inpatient report ID {id}."
-        )
-        return ApiResponse.success(data=data, message="Laporan rawat inap berhasil diupdate.", code=200)
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# @router.put("/laporan-rawat-inap/{id}")
+# def update(
+#     id: int,
+#     payload: LaporanRawatInapUpdate,
+#     db: Session = Depends(get_db_main),
+#     current_user: UserModel = Depends(super_admin_only)
+# ):
+#     try:
+#         data = LaporanRawatInapService.update(db, id, payload)
+#         ActivityLogger.log(
+#             username=current_user.username,
+#             action="RAWAT_INAP_UPDATE",
+#             description=f"User '{current_user.username}' updated inpatient report ID {id}."
+#         )
+#         return ApiResponse.success(data=data, message="Laporan rawat inap berhasil diupdate.", code=200)
+#     except HTTPException as he:
+#         raise he
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/laporan-rawat-inap/{id}")
-def destroy(
-    id: int,
-    db: Session = Depends(get_db_main),
-    current_user: UserModel = Depends(super_admin_only)
-):
-    try:
-        LaporanRawatInapService.delete(db, id)
-        ActivityLogger.log(
-            username=current_user.username,
-            action="RAWAT_INAP_DELETE",
-            description=f"User '{current_user.username}' deleted inpatient report ID {id}."
-        )
-        return ApiResponse.success(data=None, message="Laporan rawat inap berhasil dihapus.", code=200)
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# @router.delete("/laporan-rawat-inap/{id}")
+# def destroy(
+#     id: int,
+#     db: Session = Depends(get_db_main),
+#     current_user: UserModel = Depends(super_admin_only)
+# ):
+#     try:
+#         LaporanRawatInapService.delete(db, id)
+#         ActivityLogger.log(
+#             username=current_user.username,
+#             action="RAWAT_INAP_DELETE",
+#             description=f"User '{current_user.username}' deleted inpatient report ID {id}."
+#         )
+#         return ApiResponse.success(data=None, message="Laporan rawat inap berhasil dihapus.", code=200)
+#     except HTTPException as he:
+#         raise he
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/laporan-rawat-inap/ndr-gdr")
+@router.get("/ndr-gdr")
 def get_ndr_gdr_report(
     tahun: int = Query(..., description="Filter by year"),
     db: Session = Depends(get_db_main),
@@ -107,7 +107,7 @@ def get_ndr_gdr_report(
     
     # Tambahkan SensusRanapLengkapResponse pada list import dari app.schemas.laporan_rawat_inap
 
-@router.get("/laporan-rawat-inap/sensus-lengkap")
+@router.get("/kunjungan-total")
 def get_sensus_ranap_lengkap(
     tahun: int = Query(..., description="Filter berdasarkan tahun"),
     db: Session = Depends(get_db_main),
