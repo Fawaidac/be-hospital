@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import case, func, text
 from typing import List, Optional
 from datetime import datetime, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 import asyncio
 import os
 
@@ -247,89 +248,120 @@ def get_all_reviews_for_dashboard(
     )
 
 @router.post("/reviews/sync", response_model=BaseResponse[dict])
-async def sync_old_reviews(db: Session = Depends(get_db_main), current_user: UserModel = Depends(get_current_user)):
-    old_reviews = await ReviewBotService.fetch_all_reviews_paginated()
-    count_saved = 0
+async def sync_old_reviews(
+    full: bool = Query(False, description="Set True untuk full historical sync, False untuk quick sync review terbaru"),
+    db: Session = Depends(get_db_main), 
+    current_user: UserModel = Depends(get_current_user)
+):
+    if full:
+        reviews_to_process = await ReviewBotService.fetch_all_reviews_paginated()
+    else:
+        reviews_to_process = await ReviewBotService.fetch_latest_reviews()
 
-    for rev in old_reviews:
+    count_saved = 0
+    count_updated = 0
+
+    for rev in reviews_to_process:
         review_id = rev.get("reviewId")
+        if not review_id:
+            continue
+
         existing = db.query(GoogleReviewModel).filter(GoogleReviewModel.review_id == review_id).first()
 
-        if not existing:
-            rating = ReviewBotService.parse_rating(rev.get("starRating"))
-            comment = rev.get("comment", "")
-            reviewer_name = rev.get("reviewer", {}).get("displayName", "Pasien")
-            
-            ai_analysis = await ReviewBotService.analyze_review_intent_and_sentiment(comment, rating)
-            is_asking = ai_analysis["is_asking"]
-            detected_sentiment = ai_analysis["sentiment"]
+        rating = ReviewBotService.parse_rating(rev.get("starRating"))
+        comment = rev.get("comment", "")
+        reviewer_name = rev.get("reviewer", {}).get("displayName", "Pasien")
+        
+        raw_create_time = rev.get("createTime")
+        review_created_at = datetime.now()
+        if raw_create_time:
+            try:
+                review_created_at = datetime.fromisoformat(raw_create_time.replace("Z", "+00:00"))
+            except ValueError:
+                review_created_at = datetime.now()
 
-            raw_create_time = rev.get("createTime")
-            review_created_at = datetime.now()
-            if raw_create_time:
-                try:
-                    review_created_at = datetime.fromisoformat(raw_create_time.replace("Z", "+00:00"))
-                except ValueError:
-                    review_created_at = datetime.now()
+        has_replied = "reviewReply" in rev
+        review_replied_at = None
 
-            has_replied = "reviewReply" in rev
-            review_replied_at = None
-
-            if has_replied:
+        if existing:
+            if has_replied and existing.status != "replied":
                 bot_reply = rev["reviewReply"].get("comment", "")
-                status_reply = "replied"
-                
+                existing.reply_text = bot_reply
+                existing.status = "replied"
                 raw_reply_time = rev["reviewReply"].get("updateTime")
                 if raw_reply_time:
                     try:
-                        review_replied_at = datetime.fromisoformat(raw_reply_time.replace("Z", "+00:00"))
+                        existing.replied_at = datetime.fromisoformat(raw_reply_time.replace("Z", "+00:00"))
                     except ValueError:
-                        review_replied_at = review_created_at 
-                else:
-                    review_replied_at = review_created_at
-            else:
-                if rating in [1, 2] or is_asking:
-                    bot_reply = None
-                    status_reply = "pending"
-                    review_replied_at = None
-                else:
-                    bot_reply = await ReviewBotService.generate_reply_template(rating, reviewer_name, db)
-                    success = await ReviewBotService.send_reply_to_google(review_id, bot_reply)
-                    status_reply = "replied" if success else "pending"
-                    bot_reply = bot_reply if success else None
-                    review_replied_at = datetime.now() if success else None
+                        existing.replied_at = datetime.now()
+                db.commit()
+                count_updated += 1
+            continue
 
-            new_review = GoogleReviewModel(
-                review_id=review_id,
-                reviewer_name=reviewer_name,
-                rating=rating,
-                comment=comment,
-                reply_text=bot_reply,
-                status=status_reply,
-                sentiment=detected_sentiment,
-                created_at=review_created_at, 
-                replied_at=review_replied_at 
-            )
-            db.add(new_review)
-            db.commit()
+        ai_analysis = await ReviewBotService.analyze_review_intent_and_sentiment(comment, rating)
+        is_asking = ai_analysis["is_asking"]
+        detected_sentiment = ai_analysis["sentiment"]
 
-            for kw in ai_analysis["keywords"]:
-                db.add(ReviewKeywordModel(review_id=review_id, keyword=kw))
-            db.commit()
+        if has_replied:
+            bot_reply = rev["reviewReply"].get("comment", "")
+            status_reply = "replied"
             
-            count_saved += 1
-            await asyncio.sleep(4.0) 
+            raw_reply_time = rev["reviewReply"].get("updateTime")
+            if raw_reply_time:
+                try:
+                    review_replied_at = datetime.fromisoformat(raw_reply_time.replace("Z", "+00:00"))
+                except ValueError:
+                    review_replied_at = review_created_at 
+            else:
+                review_replied_at = review_created_at
+        else:
+            if rating in [1, 2] or is_asking:
+                bot_reply = None
+                status_reply = "pending"
+                review_replied_at = None
+            else:
+                bot_reply = await ReviewBotService.generate_reply_template(rating, reviewer_name, db)
+                success = await ReviewBotService.send_reply_to_google(review_id, bot_reply)
+                status_reply = "replied" if success else "pending"
+                bot_reply = bot_reply if success else None
+                review_replied_at = datetime.now() if success else None
 
-    if count_saved > 0:
+        new_review = GoogleReviewModel(
+            review_id=review_id,
+            reviewer_name=reviewer_name,
+            rating=rating,
+            comment=comment,
+            reply_text=bot_reply,
+            status=status_reply,
+            sentiment=detected_sentiment,
+            created_at=review_created_at, 
+            replied_at=review_replied_at 
+        )
+        db.add(new_review)
+        db.commit()
+
+        for kw in ai_analysis["keywords"]:
+            db.add(ReviewKeywordModel(review_id=review_id, keyword=kw))
+        db.commit()
+        
+        count_saved += 1
+        if full:
+            await asyncio.sleep(0.5)
+
+    if count_saved > 0 or count_updated > 0:
         ActivityLogger.log(
             username=current_user.username, action="REVIEW_SYNC",
-            description=f"User '{current_user.username}' synchronized {count_saved} old reviews."
+            description=f"User '{current_user.username}' synchronized {count_saved} new reviews and updated {count_updated} reviews."
         )
 
-    return ApiResponse.success(data={"synchronized_count": count_saved}, message=f"Successfully synchronized {count_saved} reviews.", code=200)
+    return ApiResponse.success(
+        data={"synchronized_count": count_saved, "updated_count": count_updated},
+        message=f"Berhasil sinkronisasi. {count_saved} review baru ditambahkan, {count_updated} di-update.",
+        code=200
+    )
 
 @router.get("/reviews/stats", response_model=BaseResponse[DashboardStatsResponse])
-def get_dashboard_statistics(
+async def get_dashboard_statistics(
     db: Session = Depends(get_db_main),
     current_user: UserModel = Depends(get_current_user)
 ):
@@ -376,8 +408,21 @@ def get_dashboard_statistics(
         func.sum(case((GoogleReviewModel.status == "pending", 1), else_=0)).label("pending_count"),
     ).first()
 
-    total_reviews = stats.total or 0
-    rating_average = round(float(stats.average), 1) if stats.average is not None else 0.0
+    # Ambil total dan average rating langsung dari GMB API
+    gmb_total, gmb_avg = await ReviewBotService.fetch_gmb_location_stats()
+
+    if gmb_total is not None:
+        total_reviews = gmb_total
+    else:
+        total_reviews = stats.total or 0
+
+    if gmb_avg is not None:
+        rating_average = gmb_avg
+    elif stats.average is not None:
+        rating_average = float(Decimal(str(stats.average)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+    else:
+        rating_average = 0.0
+
     positive_vibes = 0.0
     positive_trend = 0.0
     avg_response_hours = 0.0

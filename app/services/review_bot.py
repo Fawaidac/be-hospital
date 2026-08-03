@@ -4,6 +4,8 @@ import logging
 import httpx
 import joblib
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional, Tuple
 from app.core.config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -200,7 +202,46 @@ class ReviewBotService:
         logger.info(f"✅ Berhasil mengambil total {len(all_reviews)} review dari Google ({page_count} halaman).")
         ReviewBotService.write_bot_log("SUCCESS", f"Berhasil mengambil total {len(all_reviews)} review dari Google ({page_count} halaman).")
         return all_reviews
-    
+
+    @staticmethod
+    async def fetch_gmb_location_stats() -> Tuple[Optional[int], Optional[float]]:
+        """
+        Mengambil total review count dan average rating langsung dari Google My Business API
+        tanpa menghitung manual dari database lokal.
+        """
+        account_id, location_id = ReviewBotService.get_clean_account_location_ids()
+
+        access_token = await ReviewBotService.get_live_access_token()
+        if not access_token:
+            return None, None
+
+        url = f"https://mybusiness.googleapis.com/v4/{account_id}/{location_id}/reviews"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        params = {"pageSize": 1}
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(url, headers=headers, params=params, timeout=5.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    total_reviews = data.get("totalReviewCount")
+                    avg_rating = data.get("averageRating")
+
+                    parsed_total = int(total_reviews) if total_reviews is not None else None
+                    parsed_avg = float(Decimal(str(avg_rating)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)) if avg_rating is not None else None
+
+                    logger.info(f"✅ GMB Stats berhasil diambil: total={parsed_total}, average={parsed_avg}")
+                    return parsed_total, parsed_avg
+
+                logger.error(f"❌ Gagal mengambil stats dari GMB [{response.status_code}]: {response.text}")
+                return None, None
+            except Exception as e:
+                logger.error(f"❌ Error koneksi saat fetch GMB stats: {str(e)}")
+                return None, None
+
     @staticmethod
     async def send_reply_to_google(review_id: str, reply_text: str) -> bool:
         """Reply review via My Business Account Management API (current)"""
