@@ -3,7 +3,10 @@ import json
 import time
 import logging
 from logging.handlers import RotatingFileHandler
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+# Definisikan zona waktu Jakarta (UTC+7)
+WIB = timezone(timedelta(hours=7))
 
 # =====================================================================
 # CONFIGURATION & INITIALIZATION (Hanya dieksekusi 1x saat aplikasi start)
@@ -41,7 +44,9 @@ class ActivityLogger:
         Sangat efisien karena rotasi file dikelola otomatis oleh RotatingFileHandler.
         """
         try:
-            now = datetime.now()
+            # Gunakan WIB
+            now = datetime.now(WIB)
+            
             # ID unik berbasis microsecond timestamp (efisien & urut)
             log_id = int(time.time() * 1000000) 
             

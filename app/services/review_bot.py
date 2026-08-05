@@ -3,7 +3,9 @@ import os
 import logging
 import httpx
 import joblib
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+WIB = timezone(timedelta(hours=7))
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Tuple
 from app.core.config import settings
@@ -466,7 +468,7 @@ class ReviewBotService:
             os.makedirs(log_dir)
             
         log_file_path = os.path.join(log_dir, "review_bot_activity.txt")
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S")
         
         log_line = f"[{timestamp}] [{level.upper()}] {message}\n"
         
