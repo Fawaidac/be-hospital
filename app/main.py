@@ -94,50 +94,63 @@ app.include_router(laporan_rawat_inap.router)
 app.include_router(laporan_kunjungan.router)
 app.include_router(pelayanan.router)
 
-
-# =========================================================================
-# 🚀 INTEGRASI FRONTEND FLUTTER WEB (DITARUH DI PALING BAWAH)
-# =========================================================================
-
-# =========================================================================
-# 🚀 INTEGRASI FRONTEND FLUTTER WEB (DITARUH DI PALING BAWAH)
-# =========================================================================
-
+# ==========================================
+# 1. INTEGRASI FRONTEND UTAMA (frontend_dist)
+# ==========================================
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend_dist")
 
 if os.path.exists(FRONTEND_DIR):
-    # 1. Mount folder assets bawaan Flutter
-    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets")), name="flutter_assets")
+    # Mount folder statis frontend utama
+    if os.path.exists(os.path.join(FRONTEND_DIR, "assets")):
+        app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets")), name="flutter_assets")
     
-    # 🌟 PENTING: Mount folder canvaskit bawaan Flutter agar rendering grafis aman
     if os.path.exists(os.path.join(FRONTEND_DIR, "canvaskit")):
         app.mount("/canvaskit", StaticFiles(directory=os.path.join(FRONTEND_DIR, "canvaskit")), name="flutter_canvaskit")
 
-    # 2. Tangkap URL Root (/) untuk memunculkan dashboard Flutter
     @app.get("/")
     async def serve_flutter_index():
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
-    # 3. Solusi Jaring Pengaman Router + Handler File Statis di Root
+# ==========================================
+# 2. INTEGRASI FRONTEND SOEBIS (/soebis)
+# ==========================================
+SOEBIS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "soebis")
+
+if os.path.exists(SOEBIS_DIR):
+    # Mount folder statis SOEBIS dengan prefix & name unik
+    if os.path.exists(os.path.join(SOEBIS_DIR, "assets")):
+        app.mount("/soebis/assets", StaticFiles(directory=os.path.join(SOEBIS_DIR, "assets")), name="soebis_assets")
+
+    if os.path.exists(os.path.join(SOEBIS_DIR, "canvaskit")):
+        app.mount("/soebis/canvaskit", StaticFiles(directory=os.path.join(SOEBIS_DIR, "canvaskit")), name="soebis_canvaskit")
+
+    @app.get("/soebis")
+    @app.get("/soebis/")
+    async def serve_soebis_index():
+        return FileResponse(os.path.join(SOEBIS_DIR, "index.html"))
+
+    # Single-Page Application (SPA) Routing & Static Fallback Khusus SOEBIS
+    @app.get("/soebis/{catchall:path}")
+    async def serve_soebis_spa(catchall: str):
+        file_path = os.path.join(SOEBIS_DIR, catchall)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(SOEBIS_DIR, "index.html"))
+
+# ==========================================
+# 3. GLOBAL SPA CATCHALL (Harus Paling Bawah)
+# ==========================================
+if os.path.exists(FRONTEND_DIR):
     @app.get("/{catchall:path}")
     async def walk_around_routing(catchall: str):
-        # Jika user menembak API palsu/salah, lempar error JSON API asli
+        # Jalur API yang tidak terdaftar tetap mengembalikan 404 JSON
         if catchall.startswith("api/"):
             return JSONResponse(status_code=404, content={"success": False, "message": "API Endpoint Not Found"})
         
-        # 🌟 VALIDASI FILE STATIS ROOT (Mencegah eror Unexpected token '<')
-        # Cek apakah file yang diminta browser (seperti flutter_bootstrap.js, manifest.json, dll) ada di root frontend_dist
+        # Validasi berkas statis di root frontend_dist
         file_path = os.path.join(FRONTEND_DIR, catchall)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
         
-        # Selain API dan file statis asli (misal user ngakses route /dashboard), oper kendali ke index.html Flutter
+        # Fallback ke index.html frontend utama
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
-else:
-    @app.get("/")
-    async def frontend_fallback():
-        return HTMLResponse("<h3>Backend RSUD dr. Soebandi Aktif. Folder 'frontend_dist' belum di-upload.</h3>")
-    # Mode cadangan jika folder frontend belum di-upload ke server VPS
-    @app.get("/")
-    async def frontend_fallback():
-        return HTMLResponse("<h3>Backend RSUD dr. Soebandi Aktif. Folder 'frontend_dist' belum di-upload.</h3>")
