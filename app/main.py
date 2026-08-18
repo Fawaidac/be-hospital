@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles # Tambahkan StaticFiles untuk folder
 from fastapi.templating import Jinja2Templates 
 from fastapi.middleware.cors import CORSMiddleware 
 from dotenv import load_dotenv
+import httpx # Tambahkan httpx untuk fitur proxy API
 
 from app.core.database import BaseMain, BasePSC, engine_main, engine_psc
 from app.core.security import AuthException
@@ -46,7 +47,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "x-token", "x-target-url"], # Diperbarui agar custom header proxy diizinkan
 )
 
 templates = Jinja2Templates(directory="templates")
@@ -93,6 +94,53 @@ app.include_router(notifications.router)
 app.include_router(laporan_rawat_inap.router)
 app.include_router(laporan_kunjungan.router)
 app.include_router(pelayanan.router)
+
+
+# ==========================================
+# ENDPOINT CORS PROXY (Dinamis GET & POST)
+# ==========================================
+@app.api_route("/proxy", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+async def cors_proxy(request: Request):
+    target_url = request.headers.get("x-target-url")
+    if not target_url:
+        return JSONResponse(
+            status_code=400, 
+            content={"success": False, "message": "Header 'x-target-url' wajib diisi"}
+        )
+
+    x_token = request.headers.get("x-token", "soebandi2507")
+    body = await request.body()
+
+    headers = {
+        "x-token": x_token,
+        "Content-Type": "application/json"
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.request(
+                method=request.method,
+                url=target_url,
+                headers=headers,
+                content=body if body else None
+            )
+            
+            # Mendapatkan output JSON / raw response dari server target
+            try:
+                data = response.json()
+                return JSONResponse(status_code=response.status_code, content=data)
+            except Exception:
+                return httpx.Response(
+                    content=response.content,
+                    status_code=response.status_code,
+                    media_type=response.headers.get("content-type", "text/plain")
+                )
+    except httpx.RequestError as exc:
+        return JSONResponse(
+            status_code=500, 
+            content={"success": False, "message": f"Proxy Error: {str(exc)}"}
+        )
+
 
 # ==========================================
 # 1. INTEGRASI FRONTEND UTAMA (frontend_dist)
@@ -144,7 +192,7 @@ if os.path.exists(FRONTEND_DIR):
     @app.get("/{catchall:path}")
     async def walk_around_routing(catchall: str):
         # Jalur API yang tidak terdaftar tetap mengembalikan 404 JSON
-        if catchall.startswith("api/"):
+        if catchall.startswith("api/") or catchall == "proxy":
             return JSONResponse(status_code=404, content={"success": False, "message": "API Endpoint Not Found"})
         
         # Validasi berkas statis di root frontend_dist
