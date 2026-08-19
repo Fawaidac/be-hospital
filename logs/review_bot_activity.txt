@@ -192,3 +192,23 @@
 [2026-07-03 10:38:40] [SUCCESS] [SVM Lokal Pede] Sentimen: NEUTRAL | Intent (IsAsking): False
 [2026-07-21 11:53:06] [INFO] [SVM Lokal Prob] Pos:0.01 | Neg:0.00 | True(Ask):0.01
 [2026-07-21 11:53:06] [SUCCESS] [SVM Lokal Pede] Sentimen: NEUTRAL | Intent (IsAsking): False
+[2026-08-19 11:33:05] [INFO] Melakukan pengecekan review terbaru ke Google API...
+[2026-08-19 11:33:05] [SUCCESS] Berhasil mendapatkan Access Token Google OAuth2.
+[2026-08-19 11:33:06] [SUCCESS] Berhasil mengambil 50 review terbaru dari Google (1 halaman).
+[2026-08-19 11:38:06] [INFO] Melakukan pengecekan review terbaru ke Google API...
+[2026-08-19 11:38:06] [SUCCESS] Berhasil mendapatkan Access Token Google OAuth2.
+[2026-08-19 11:38:09] [SUCCESS] Berhasil mengambil 50 review terbaru dari Google (1 halaman).
+[2026-08-19 11:43:09] [INFO] Melakukan pengecekan review terbaru ke Google API...
+[2026-08-19 11:43:09] [SUCCESS] Berhasil mendapatkan Access Token Google OAuth2.
+[2026-08-19 11:43:10] [SUCCESS] Berhasil mengambil 50 review terbaru dari Google (1 halaman).
+[2026-08-19 11:43:10] [INFO] [SVM Lokal Prob] Pos:0.03 | Neg:0.00 | True(Ask):0.10
+[2026-08-19 11:43:10] [SUCCESS] [SVM Lokal Pede] Sentimen: NEUTRAL | Intent (IsAsking): False
+[2026-08-19 11:48:12] [INFO] Melakukan pengecekan review terbaru ke Google API...
+[2026-08-19 11:48:12] [SUCCESS] Berhasil mendapatkan Access Token Google OAuth2.
+[2026-08-19 11:48:13] [SUCCESS] Berhasil mengambil 50 review terbaru dari Google (1 halaman).
+[2026-08-19 11:53:13] [INFO] Melakukan pengecekan review terbaru ke Google API...
+[2026-08-19 11:53:13] [SUCCESS] Berhasil mendapatkan Access Token Google OAuth2.
+[2026-08-19 11:53:15] [SUCCESS] Berhasil mengambil 50 review terbaru dari Google (1 halaman).
+[2026-08-19 11:58:15] [INFO] Melakukan pengecekan review terbaru ke Google API...
+[2026-08-19 11:58:15] [SUCCESS] Berhasil mendapatkan Access Token Google OAuth2.
+[2026-08-19 11:58:16] [SUCCESS] Berhasil mengambil 50 review terbaru dari Google (1 halaman).
