@@ -179,6 +179,8 @@ def get_all_reviews_for_dashboard(
     time_range: Optional[str] = Query(None, description="Filter waktu: '7_days', '30_days', atau 'all_time'"),
     rating: Optional[int] = Query(None, description="Filter rating bintang: 1 sampai 5", ge=1, le=5),
     sentiment: Optional[str] = Query(None, description="Filter sentimen: 'POSITIVE', 'NEUTRAL', atau 'NEGATIVE'"),
+    date_from: Optional[str] = Query(None, description="Filter tanggal mulai (format: YYYY-MM-DD), inklusif"),
+    date_to: Optional[str] = Query(None, description="Filter tanggal akhir (format: YYYY-MM-DD), inklusif sampai akhir hari"),
     page: int = Query(1, description="Nomor halaman, mulai dari 1", ge=1),
     page_size: int = Query(20, description="Jumlah data per halaman", ge=1, le=100),
     db: Session = Depends(get_db_main), 
@@ -203,6 +205,29 @@ def get_all_reviews_for_dashboard(
         elif time_range == "30_days":
             start_date = now - timedelta(days=30)
             query = query.filter(GoogleReviewModel.created_at >= start_date)
+
+    # Filter date range manual (date_from & date_to)
+    # Jika date_from diisi, filter created_at >= tanggal mulai (jam 00:00:00)
+    if date_from:
+        try:
+            parsed_date_from = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.filter(GoogleReviewModel.created_at >= parsed_date_from)
+        except ValueError:
+            return ApiResponse.error(
+                message="Format date_from tidak valid. Gunakan format YYYY-MM-DD (contoh: 2025-01-15).",
+                code=400
+            )
+
+    # Jika date_to diisi, filter created_at <= tanggal akhir (jam 23:59:59) supaya hari terakhir ikut masuk
+    if date_to:
+        try:
+            parsed_date_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            query = query.filter(GoogleReviewModel.created_at <= parsed_date_to)
+        except ValueError:
+            return ApiResponse.error(
+                message="Format date_to tidak valid. Gunakan format YYYY-MM-DD (contoh: 2025-01-31).",
+                code=400
+            )
 
     # Hitung total SEBELUM limit/offset diterapkan, supaya FE tahu total data & total halaman
     total_items = query.count()
