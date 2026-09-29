@@ -186,7 +186,32 @@ if os.path.exists(SOEBIS_DIR):
         return FileResponse(os.path.join(SOEBIS_DIR, "index.html"))
 
 # ==========================================
-# 3. GLOBAL SPA CATCHALL (Harus Paling Bawah)
+# 3. INTEGRASI FRONTEND SOESIE (/soesie)
+# ==========================================
+SOESIE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "soesie")
+
+if os.path.exists(SOESIE_DIR):
+    # Mount folder statis SOESIE dengan prefix & name unik
+    if os.path.exists(os.path.join(SOESIE_DIR, "assets")):
+        app.mount("/soesie/assets", StaticFiles(directory=os.path.join(SOESIE_DIR, "assets")), name="soesie_assets")
+
+    if os.path.exists(os.path.join(SOESIE_DIR, "canvaskit")):
+        app.mount("/soesie/canvaskit", StaticFiles(directory=os.path.join(SOESIE_DIR, "canvaskit")), name="soesie_canvaskit")
+
+    @app.get("/soesie")
+    @app.get("/soesie/")
+    async def serve_soesie_index():
+        return FileResponse(os.path.join(SOESIE_DIR, "index.html"))
+
+    # Single-Page Application (SPA) Routing & Static Fallback Khusus SOESIE
+    @app.get("/soesie/{catchall:path}")
+    async def serve_soesie_spa(catchall: str):
+        file_path = os.path.join(SOESIE_DIR, catchall)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(SOESIE_DIR, "index.html"))
+# ==========================================
+# 4. GLOBAL SPA CATCHALL (Harus Paling Bawah)
 # ==========================================
 if os.path.exists(FRONTEND_DIR):
     @app.get("/{catchall:path}")
